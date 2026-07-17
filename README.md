@@ -5,8 +5,12 @@ A private, offline P&L journal for tracking trading accounts and bots — a sing
 ## Features
 
 - **Dashboard** — net P&L with This week / Month / Year / All ranges, a cumulative equity curve, and per-account cards.
+- **Performance stats** — win rate, average win/loss week, current & longest streaks, max drawdown, and best week.
 - **Weekly calendar** — log profit or loss per account for each week; green/red rows with per-account breakdowns.
+- **Weekly notes & tags** — journal what happened each week and tag it (e.g. `#news`, `#disciplined`); shown on calendar rows and heatmap.
+- **Year heatmap** — a full-year grid of weeks colored green/red, with per-account filtering and hover details.
 - **Accounts & bots** — add accounts with a name, source/platform, starting balance, type, and color. Edit or delete anytime.
+- **Deposits & withdrawals** — track capital in/out per account so balance and return on capital stay accurate.
 - **Export / Import** — back up or move your data as a JSON file.
 
 ## Usage
