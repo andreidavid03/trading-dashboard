@@ -352,6 +352,33 @@
   .heat-tip{position:fixed;pointer-events:none;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-size:12px;opacity:0;transition:opacity .12s;white-space:nowrap;box-shadow:var(--shadow);z-index:60;transform:translate(-50%,-120%)}
   .heat-tip b{font-variant-numeric:tabular-nums}
 
+  /* ---------- Robots ---------- */
+  .rb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  .rb-card{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius-sm);padding:18px 20px;position:relative;overflow:hidden;transition:.2s;box-shadow:var(--shadow)}
+  .rb-card:hover{border-color:var(--line);transform:translateY(-2px)}
+  .rb-card .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+  .rb-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .rb-name{font-size:15.5px;font-weight:750;display:flex;align-items:center;gap:9px}
+  .rb-name .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+  .rb-sub{font-size:11.5px;color:var(--txt-faint);margin-top:3px;text-transform:uppercase;letter-spacing:.4px}
+  .rb-badge{font-size:10.5px;font-weight:750;padding:4px 10px;border-radius:20px;letter-spacing:.4px;white-space:nowrap;text-transform:uppercase}
+  .rb-badge.running{color:var(--green);background:rgba(38,214,127,.14);border:1px solid rgba(38,214,127,.3)}
+  .rb-badge.waiting{color:var(--amber);background:rgba(255,181,71,.14);border:1px solid rgba(255,181,71,.32)}
+  .rb-badge.paused{color:var(--txt-faint);background:var(--bg-2);border:1px solid var(--line)}
+  .rb-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .rb-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--txt-dim);background:var(--bg-2);border:1px solid var(--line-soft);padding:5px 10px;border-radius:8px}
+  .rb-chip svg{width:12px;height:12px;color:var(--txt-faint)}
+  .rb-pnl{font-size:26px;font-weight:750;margin-top:14px;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+  .rb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft)}
+  .rb-st{display:flex;flex-direction:column;gap:2px}
+  .rb-st .k{font-size:10.5px;color:var(--txt-faint);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .rb-st .v{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+  .rb-actions{display:flex;gap:8px;margin-top:14px}
+  .rb-actions button{flex:1;padding:8px;border-radius:8px;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--line-soft);background:var(--bg-2);color:var(--txt-dim);transition:.15s}
+  .rb-actions button:hover{background:var(--panel-2);color:var(--txt)}
+  .rb-actions button.del:hover{color:var(--red);border-color:var(--red-dim)}
+  .rb-cycle{font-size:11px;color:var(--txt-faint);margin-top:9px}
+
   /* toasts */
   #toastWrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;gap:10px;align-items:center}
   .toast{background:var(--panel-2);border:1px solid var(--line);color:var(--txt);font-size:13.5px;font-weight:600;padding:12px 20px;border-radius:11px;box-shadow:var(--shadow);opacity:0;transform:translateY(14px);transition:.3s cubic-bezier(.2,.9,.3,1.1);display:flex;align-items:center;gap:9px}
@@ -394,6 +421,10 @@
       <button data-view="year">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="6" rx="1.5"/><rect x="14" y="14" width="7" height="6" rx="1.5"/></svg>
         Year
+      </button>
+      <button data-view="robots">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2.5"/><path d="M12 8V4M9 14h.01M15 14h.01M2 13h2M20 13h2"/></svg>
+        Robots
       </button>
       <button data-view="accounts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg>
@@ -498,10 +529,33 @@
     <div class="heat-tip" id="heatTip"></div>
   </section>
 
+  <!-- ================= ROBOTS ================= -->
+  <section id="robots" class="view">
+    <div class="section-title" style="margin-top:4px">
+      <h2>Robots <span style="font-size:12px;font-weight:600;color:var(--txt-faint)">· your EA roster</span></h2>
+      <div class="toolbar">
+        <span class="hint" id="rbHint" style="margin-right:6px"></span>
+        <button class="btn ghost" id="rbImportBtn" style="padding:8px 14px;font-size:12.5px" title="Add robots from a file (merge, won't overwrite)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M4 21h16"/></svg>
+          Import
+        </button>
+        <input type="file" id="rbImportFile" accept="application/json" hidden>
+        <button class="btn" id="rbAddBtn" style="padding:8px 14px;font-size:12.5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add robot
+        </button>
+      </div>
+    </div>
+
+    <div class="stat-grid" id="rbSummary"></div>
+    <div class="acct-filter" id="rbFilter"></div>
+    <div class="rb-grid" id="rbGrid"></div>
+  </section>
+
   <!-- ================= ACCOUNTS ================= -->
   <section id="accounts" class="view">
     <div class="section-title">
-      <h2>Manage accounts &amp; bots</h2>
+      <h2>Accounts <span style="font-size:12px;font-weight:600;color:var(--txt-faint)">· your broker accounts</span></h2>
       <div class="toolbar">
         <button class="btn ghost" id="exportBtn" style="padding:8px 14px;font-size:12.5px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 10l5 5 5-5M4 21h16"/></svg>
@@ -523,22 +577,21 @@
 <div class="overlay" id="acctOverlay">
   <div class="modal" style="max-width:460px">
     <div class="modal-head">
-      <div><h3 id="acctModalTitle">New Account</h3><p id="acctModalSub">Add a trading account or bot</p></div>
+      <div><h3 id="acctModalTitle">New Account</h3><p id="acctModalSub">Add a broker / trading account</p></div>
       <button class="x" data-close="acctOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="acctId">
       <div class="field">
-        <label>Account / Bot name</label>
-        <input type="text" id="acctName" placeholder="e.g. Alpha Scalper, Binance Main">
+        <label>Account name</label>
+        <input type="text" id="acctName" placeholder="e.g. PU Prime 27798475, XM Main">
       </div>
       <div class="field">
-        <label>Source / Platform</label>
-        <input type="text" id="acctSource" placeholder="e.g. Binance, MT5, 3Commas, Manual" list="srcList">
+        <label>Broker / Platform</label>
+        <input type="text" id="acctSource" placeholder="e.g. PU Prime, XM, Headway, MT5" list="srcList">
         <datalist id="srcList">
-          <option>Binance</option><option>Bybit</option><option>MetaTrader 5</option><option>MetaTrader 4</option>
-          <option>3Commas</option><option>Coinbase</option><option>Kraken</option><option>Interactive Brokers</option>
-          <option>NinjaTrader</option><option>TradingView</option><option>Manual</option>
+          <option>PU Prime</option><option>XM</option><option>Headway</option><option>MetaTrader 5</option><option>MetaTrader 4</option>
+          <option>Binance</option><option>Bybit</option><option>Interactive Brokers</option><option>Manual</option>
         </datalist>
       </div>
       <div class="field-row">
@@ -549,12 +602,20 @@
         <div class="field">
           <label>Type</label>
           <select id="acctType">
-            <option value="bot">🤖 Bot</option>
+            <option value="bot">🤖 Bot / EA</option>
             <option value="manual">✋ Manual</option>
             <option value="copy">🔁 Copy trade</option>
             <option value="prop">🏦 Prop firm</option>
           </select>
         </div>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="acctStatus">
+          <option value="running">🟢 Active — trading now</option>
+          <option value="waiting">🟡 Waiting — set up, not deployed yet</option>
+          <option value="paused">⏸️ Paused — stopped for now</option>
+        </select>
       </div>
       <div class="field">
         <label>Color</label>
@@ -579,6 +640,57 @@
       <div class="modal-foot">
         <button class="btn ghost" data-close="acctOverlay">Cancel</button>
         <button class="btn" id="saveAcct">Save account</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ROBOT MODAL ============ -->
+<div class="overlay" id="robotOverlay">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head">
+      <div><h3 id="rbModalTitle">New Robot</h3><p id="rbModalSub">Add an EA to your roster</p></div>
+      <button class="x" data-close="robotOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rbId">
+      <div class="field">
+        <label>Robot / EA name</label>
+        <input type="text" id="rbName" placeholder="e.g. Latex, ARTQuant, Crowconcept">
+      </div>
+      <div class="field">
+        <label>Runs on account</label>
+        <select id="rbAccount"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Currency / pair <span style="color:var(--txt-faint);font-weight:500">(what it trades)</span></label>
+          <input type="text" id="rbMarket" placeholder="e.g. XAUUSD, BTCUSD, EURUSD">
+        </div>
+        <div class="field">
+          <label>Session / timeframe <span style="color:var(--txt-faint);font-weight:500">(when)</span></label>
+          <input type="text" id="rbSession" placeholder="e.g. London, M5">
+        </div>
+      </div>
+      <div class="field">
+        <label>Status</label>
+        <select id="rbStatus">
+          <option value="running">🟢 Running — live right now</option>
+          <option value="waiting">🟡 Waiting — free to deploy</option>
+          <option value="paused">⚪ Paused — not in use</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notes <span style="color:var(--txt-faint);font-weight:500">(optional)</span></label>
+        <input type="text" id="rbNote" placeholder="e.g. testing since this week, martingale — watch risk">
+      </div>
+      <div class="field">
+        <label>Color</label>
+        <div class="color-picker" id="rbColorPicker"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn ghost" data-close="robotOverlay">Cancel</button>
+        <button class="btn" id="saveRobot">Save robot</button>
       </div>
     </div>
   </div>
@@ -626,8 +738,8 @@ const store = {
   load(){
     try{
       const d = JSON.parse(localStorage.getItem('tradingBook')||'{}');
-      return { accounts: d.accounts||[], entries: d.entries||{}, notes: d.notes||{}, schema: d.schema };
-    }catch(e){ this.ok=false; return { accounts:[], entries:{}, notes:{} }; }
+      return { accounts: d.accounts||[], entries: d.entries||{}, notes: d.notes||{}, robots: d.robots||[], schema: d.schema, acctCurrencyCleaned: d.acctCurrencyCleaned||false };
+    }catch(e){ this.ok=false; return { accounts:[], entries:{}, notes:{}, robots:[] }; }
   },
   save(){
     try{ localStorage.setItem('tradingBook', JSON.stringify(state)); this.ok=true; }
@@ -679,6 +791,24 @@ function migrateToWeekly(){
   state.entries=out;
   state.schema='weekly';
   store.save();
+}
+
+/* One-time: currency belongs on the robot now, not the account.
+   Strip a trailing " · <currency/denomination>" off account Broker fields
+   (e.g. "PU Prime · USC cent" -> "PU Prime"). Never touches P&L. */
+function cleanAccountCurrency(){
+  if(state.acctCurrencyCleaned) return;
+  const ccy=/^(usc|usd|eur|gbp|jpy|aud|cad|chf|nzd|cent|cents|standard|micro|mini)\b/i;
+  let changed=false;
+  (state.accounts||[]).forEach(a=>{
+    if(!a.source||a.source.indexOf('·')<0) return;
+    const parts=a.source.split('·').map(s=>s.trim());
+    const kept=parts.filter((p,i)=>i===0 || !ccy.test(p));
+    const next=kept.join(' · ');
+    if(next!==a.source){ a.source=next; changed=true; }
+  });
+  state.acctCurrencyCleaned=true;
+  if(changed) store.save();
 }
 
 function money(n,dp=2){
@@ -795,6 +925,7 @@ $$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
   if(b.dataset.view==='dashboard') renderDashboard();
   if(b.dataset.view==='calendar') renderCalendar();
   if(b.dataset.view==='year') renderYear();
+  if(b.dataset.view==='robots') renderRobots();
   if(b.dataset.view==='accounts') renderAccounts();
 }));
 
@@ -1014,13 +1145,15 @@ window.openAcctModal=function(acct=null){
     $('#acctSource').value=acct.source||'';
     $('#acctBalance').value=acct.balance||'';
     $('#acctType').value=acct.type||'bot';
+    $('#acctStatus').value=acct.status||'running';
     modalFlows=(acct.flows||[]).map(f=>({...f}));
     setColorSel(acct.color);
   } else {
     $('#acctModalTitle').textContent='New Account';
-    $('#acctModalSub').textContent='Add a trading account or bot';
+    $('#acctModalSub').textContent='Add a broker / trading account';
     $('#acctId').value='';
     $('#acctName').value=''; $('#acctSource').value=''; $('#acctBalance').value=''; $('#acctType').value='bot';
+    $('#acctStatus').value='running';
     modalFlows=[];
     const used=state.accounts.map(a=>a.color);
     const next=COLORS.find(c=>!used.includes(c))||COLORS[0];
@@ -1078,7 +1211,7 @@ function saveAccount(){
   const data={
     name, source:$('#acctSource').value.trim(),
     balance:parseFloat($('#acctBalance').value)||0,
-    type:$('#acctType').value, color:selColor,
+    type:$('#acctType').value, status:$('#acctStatus').value, color:selColor,
     flows:modalFlows.map(f=>({...f}))
   };
   const editing=!!id;
@@ -1086,7 +1219,7 @@ function saveAccount(){
   else { state.accounts.push({id:uid(),...data}); }
   store.save();
   closeOverlay('acctOverlay');
-  renderAccounts(); renderDashboard();
+  renderAccounts(); renderDashboard(); renderRobots();
   toast(editing?`Updated "${name}"`:`Added "${name}"`);
 }
 $('#saveAcct').addEventListener('click',saveAccount);
@@ -1102,6 +1235,8 @@ document.addEventListener('keydown',e=>{
 /* ============================================================
    ACCOUNTS VIEW
    ============================================================ */
+const AC_STATUS = ['running','waiting','paused'];
+const AC_LABEL  = {running:'Active', waiting:'Waiting', paused:'Paused'};
 function renderAccounts(){
   const wrap=$('#acctManage');
   const cards=state.accounts.map(a=>{
@@ -1110,10 +1245,13 @@ function renderAccounts(){
     const flows=a.flows||[];
     const dep=flows.filter(f=>f.type!=='withdrawal').reduce((t,f)=>t+(Number(f.amount)||0),0);
     const wd=flows.filter(f=>f.type==='withdrawal').reduce((t,f)=>t+(Number(f.amount)||0),0);
+    const st=a.status||'running';
+    const rbCount=(state.robots||[]).filter(r=>r.accountId===a.id).length;
     return `<div class="manage-card">
       <div class="bar" style="background:${a.color}"></div>
       <div class="top">
         <div><div class="name">${a.name}</div><div class="src">${a.source||'—'} · ${typeLabel(a.type)}</div></div>
+        <span class="rb-badge ${st}">${AC_LABEL[st]}</span>
       </div>
       <div style="margin-top:16px">
         <div class="row"><span class="l">All-time P&L</span><span class="r ${pnl>0?'pos-t':pnl<0?'neg-t':''}">${signed(pnl)}</span></div>
@@ -1122,18 +1260,27 @@ function renderAccounts(){
         ${dep?`<div class="row"><span class="l">Deposits</span><span class="r pos-t">+${money(dep)}</span></div>`:''}
         ${wd?`<div class="row"><span class="l">Withdrawals</span><span class="r">−${money(wd)}</span></div>`:''}
         ${roi!=null?`<div class="row"><span class="l">Return on capital</span><span class="r ${roi>0?'pos-t':roi<0?'neg-t':''}">${roi>0?'+':''}${roi.toFixed(1)}%</span></div>`:''}
-        <div class="row"><span class="l">Weeks traded</span><span class="r">${td}</span></div>
+        <div class="row"><span class="l">Robots on account</span><span class="r">${rbCount||'—'}</span></div>
+        <div class="row"><span class="l">Weeks traded</span><span class="r">${st==='running'?td:'—'}</span></div>
       </div>
       <div class="card-actions">
+        <button onclick='cycleAcctStatus("${a.id}")'>Set status</button>
         <button onclick='editAcct("${a.id}")'>Edit</button>
         <button class="del" onclick='deleteAcct("${a.id}")'>Delete</button>
       </div>
     </div>`;
   }).join('');
   wrap.innerHTML = cards + `<div class="add-card" onclick="openAcctModal()">
-    <div class="inner"><div class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><span>Add account / bot</span></div>
+    <div class="inner"><div class="plus"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div><span>Add account</span></div>
   </div>`;
 }
+window.cycleAcctStatus=id=>{
+  const a=state.accounts.find(x=>x.id===id); if(!a) return;
+  const i=AC_STATUS.indexOf(a.status||'running');
+  a.status=AC_STATUS[(i+1)%AC_STATUS.length];
+  store.save(); renderAccounts(); renderDashboard();
+  toast(`${a.name} → ${AC_LABEL[a.status]}`);
+};
 window.editAcct=id=>openAcctModal(state.accounts.find(a=>a.id===id));
 window.deleteAcct=id=>{
   const a=state.accounts.find(x=>x.id===id);
@@ -1143,7 +1290,7 @@ window.deleteAcct=id=>{
   for(const ds in state.entries){ delete state.entries[ds][id]; if(!Object.keys(state.entries[ds]).length) delete state.entries[ds]; }
   if(calFilter===id) calFilter='all';
   if(yearFilter===id) yearFilter='all';
-  store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear();
+  store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear(); renderRobots();
   toast(`Deleted "${a.name}"`,'del');
 };
 
@@ -1288,6 +1435,212 @@ function renderYear(){
 }
 
 /* ============================================================
+   ROBOTS — a roster of your EAs, separate from broker accounts.
+   Robots carry status / market / session and link to an account.
+   They do NOT hold P&L (that lives on the account). This is the
+   "what do I have and what's free to deploy" view.
+   ============================================================ */
+const RB_STATUS = ['running','waiting','paused'];
+const RB_LABEL  = {running:'Running', waiting:'Waiting', paused:'Paused'};
+let rbFilter = 'all';
+
+function accountNameById(id){ const a=state.accounts.find(x=>x.id===id); return a?a.name:''; }
+
+function renderRobots(){
+  const robots=state.robots||[];
+  // status filter pills
+  const counts={all:robots.length};
+  RB_STATUS.forEach(s=>counts[s]=robots.filter(r=>(r.status||'waiting')===s).length);
+  const filt=$('#rbFilter');
+  filt.innerHTML=[['all','All robots'],...RB_STATUS.map(s=>[s,RB_LABEL[s]])]
+    .map(([k,lbl])=>`<button data-f="${k}" class="${rbFilter===k?'active':''}">${lbl} <b style="opacity:.6">${counts[k]||0}</b></button>`).join('');
+  filt.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{rbFilter=b.dataset.f;renderRobots();}));
+
+  // summary tiles (roster counts only — no P&L; that's on Accounts/Dashboard)
+  const sum=$('#rbSummary');
+  if(robots.length){
+    const live=counts.running||0, free=counts.waiting||0, paused=counts.paused||0;
+    const markets=new Set(robots.map(r=>(r.market||'').trim()).filter(Boolean));
+    const tile=(l,v,cls,sub)=>`<div class="stat-tile"><div class="st-l">${l}</div><div class="st-v ${cls||''}">${v}</div>${sub?`<div class="st-sub">${sub}</div>`:''}</div>`;
+    sum.innerHTML =
+      tile('Robots', robots.length, '', `${live} running · ${paused} paused`)
+      + tile('Running now', live, live>0?'pos-t':'', 'live on an account')
+      + tile('Waiting for you', free, free>0?'':'', free>0?'ready to deploy':'none idle')
+      + tile('Currencies', markets.size, '', [...markets].slice(0,3).join(', ')||'none set');
+  } else sum.innerHTML='';
+
+  const list=robots.filter(r=>rbFilter==='all'||(r.status||'waiting')===rbFilter);
+  $('#rbHint').textContent=robots.length?`${list.length} shown of ${robots.length}`:'';
+
+  const grid=$('#rbGrid');
+  if(!robots.length){
+    grid.innerHTML=`<div class="empty-state panel" style="grid-column:1/-1">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4M9 14h.01M15 14h.01"/></svg></div>
+      <h3>No robots yet</h3><p>Add each EA you run so you can see the roster at a glance — what's live, what's free to deploy, and where each one trades.</p>
+      <button class="btn" onclick="openRobotModal()">+ Add robot</button></div>`;
+    return;
+  }
+  if(!list.length){
+    grid.innerHTML=`<div class="empty-state panel" style="grid-column:1/-1"><h3>Nothing ${RB_LABEL[rbFilter]?.toLowerCase()||''}</h3><p>No robots with this status right now.</p></div>`;
+    return;
+  }
+  const pin=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>`;
+  const clk=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+  const acc=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18"/></svg>`;
+  grid.innerHTML=list.map(r=>{
+    const st=r.status||'waiting';
+    const acct=accountNameById(r.accountId);
+    return `<div class="rb-card">
+      <div class="bar" style="background:${r.color}"></div>
+      <div class="rb-top">
+        <div style="min-width:0">
+          <div class="rb-name"><span class="dot" style="background:${r.color}"></span>${escapeHtml(r.name)}</div>
+          <div class="rb-sub">${acct?escapeHtml(acct):'no account linked'}</div>
+        </div>
+        <span class="rb-badge ${st}">${RB_LABEL[st]}</span>
+      </div>
+      <div class="rb-meta">
+        <span class="rb-chip">${pin}${r.market?escapeHtml(r.market):'currency not set'}</span>
+        <span class="rb-chip">${clk}${r.session?escapeHtml(r.session):'session not set'}</span>
+      </div>
+      ${r.note?`<div class="rb-cycle">${escapeHtml(r.note)}</div>`:''}
+      <div class="rb-actions">
+        <button onclick='cycleRobotStatus("${r.id}")'>Set status</button>
+        <button onclick='editRobot("${r.id}")'>Edit</button>
+        <button class="del" onclick='deleteRobot("${r.id}")'>Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.cycleRobotStatus=id=>{
+  const r=(state.robots||[]).find(x=>x.id===id); if(!r) return;
+  const i=RB_STATUS.indexOf(r.status||'waiting');
+  r.status=RB_STATUS[(i+1)%RB_STATUS.length];
+  store.save(); renderRobots();
+  toast(`${r.name} → ${RB_LABEL[r.status]}`);
+};
+
+/* ---------- Robot modal ---------- */
+let rbSelColor=COLORS[0];
+function buildRbColorPicker(){
+  $('#rbColorPicker').innerHTML=COLORS.map(c=>`<div class="sw" data-c="${c}" style="background:${c}"></div>`).join('');
+  $$('#rbColorPicker .sw').forEach(s=>s.addEventListener('click',()=>{
+    rbSelColor=s.dataset.c;
+    $$('#rbColorPicker .sw').forEach(x=>x.classList.toggle('sel',x===s));
+  }));
+}
+function setRbColor(c){rbSelColor=c;$$('#rbColorPicker .sw').forEach(x=>x.classList.toggle('sel',x.dataset.c===c));}
+
+window.openRobotModal=function(rob=null){
+  buildRbColorPicker();
+  // account dropdown
+  const opts=`<option value="">— no account —</option>`+
+    state.accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+  $('#rbAccount').innerHTML=opts;
+  if(rob){
+    $('#rbModalTitle').textContent='Edit Robot';
+    $('#rbModalSub').textContent='Update this EA';
+    $('#rbId').value=rob.id;
+    $('#rbName').value=rob.name;
+    $('#rbAccount').value=rob.accountId||'';
+    $('#rbMarket').value=rob.market||'';
+    $('#rbSession').value=rob.session||'';
+    $('#rbStatus').value=rob.status||'waiting';
+    $('#rbNote').value=rob.note||'';
+    setRbColor(rob.color||COLORS[0]);
+  } else {
+    $('#rbModalTitle').textContent='New Robot';
+    $('#rbModalSub').textContent='Add an EA to your roster';
+    $('#rbId').value='';
+    $('#rbName').value=''; $('#rbAccount').value=''; $('#rbMarket').value='';
+    $('#rbSession').value=''; $('#rbStatus').value='waiting'; $('#rbNote').value='';
+    const used=(state.robots||[]).map(r=>r.color);
+    setRbColor(COLORS.find(c=>!used.includes(c))||COLORS[0]);
+  }
+  openOverlay('robotOverlay');
+  setTimeout(()=>$('#rbName').focus(),50);
+};
+window.editRobot=id=>openRobotModal((state.robots||[]).find(r=>r.id===id));
+window.deleteRobot=id=>{
+  const r=(state.robots||[]).find(x=>x.id===id); if(!r) return;
+  if(!confirm(`Remove "${r.name}" from your robot roster?\n\n(Your account P&L is not affected.)`)) return;
+  state.robots=state.robots.filter(x=>x.id!==id);
+  store.save(); renderRobots();
+  toast(`Removed "${r.name}"`,'del');
+};
+
+function saveRobot(){
+  const name=$('#rbName').value.trim();
+  if(!name){ $('#rbName').focus(); $('#rbName').style.borderColor='var(--red)'; toast('Please enter a robot name','warn'); return; }
+  $('#rbName').style.borderColor='';
+  if(!state.robots) state.robots=[];
+  const id=$('#rbId').value;
+  const data={
+    name, accountId:$('#rbAccount').value||null,
+    market:$('#rbMarket').value.trim(), session:$('#rbSession').value.trim(),
+    status:$('#rbStatus').value, note:$('#rbNote').value.trim(), color:rbSelColor
+  };
+  const editing=!!id;
+  if(id){ const r=state.robots.find(x=>x.id===id); Object.assign(r,data); }
+  else { state.robots.push({id:uid(),...data}); }
+  store.save(); closeOverlay('robotOverlay'); renderRobots();
+  toast(editing?`Updated "${name}"`:`Added "${name}"`);
+}
+$('#saveRobot').addEventListener('click',saveRobot);
+$('#rbAddBtn').addEventListener('click',()=>openRobotModal());
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  if(!$('#robotOverlay').classList.contains('show')) return;
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='select'||tag==='textarea') return;
+  e.preventDefault(); saveRobot();
+});
+
+/* Import robots — MERGE into the roster by name; never overwrites accounts/P&L */
+$('#rbImportBtn').addEventListener('click',()=>$('#rbImportFile').click());
+$('#rbImportFile').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=JSON.parse(r.result);
+      // accept either {robots:[...]} or {accounts:[...]} (old files) as the source list
+      const incoming=(d.robots&&d.robots.length)?d.robots:(d.accounts||[]);
+      if(!incoming.length) throw new Error('empty');
+      if(!state.robots) state.robots=[];
+      const byName=new Map(state.robots.map(r=>[(r.name||'').trim().toLowerCase(),r]));
+      // try to link a robot's "account" name to an existing broker account
+      const linkAccount=label=>{
+        if(!label) return null;
+        const l=label.trim().toLowerCase();
+        const hit=state.accounts.find(a=>l.includes((a.name||'').trim().toLowerCase()) || (a.name||'').trim().toLowerCase().includes(l));
+        return hit?hit.id:null;
+      };
+      let added=0, updated=0;
+      incoming.forEach(x=>{
+        const key=(x.name||'').trim().toLowerCase(); if(!key) return;
+        const found=byName.get(key);
+        if(found){
+          if(x.status) found.status=x.status;
+          if(x.market) found.market=x.market;
+          if(x.session) found.session=x.session;
+          if(!found.accountId){ const aid=x.accountId||linkAccount(x.account); if(aid) found.accountId=aid; }
+          updated++; return;
+        }
+        const rec={ id:uid(), name:x.name, accountId:x.accountId||linkAccount(x.account),
+          market:x.market||'', session:x.session||'', status:x.status||'waiting',
+          note:x.note||x.source||'', color:x.color||COLORS[state.robots.length%COLORS.length] };
+        state.robots.push(rec); byName.set(key,rec); added++;
+      });
+      store.save(); renderRobots();
+      toast(`${added} added · ${updated} updated`);
+    }catch(err){ alert('Could not read that file — expected a JSON with a "robots" (or "accounts") list.'); }
+  };
+  r.readAsText(f); e.target.value='';
+});
+
+/* ============================================================
    DAY ENTRY MODAL
    ============================================================ */
 let curDay=null;
@@ -1371,9 +1724,15 @@ $('#importFile').addEventListener('change',e=>{
     try{
       const d=JSON.parse(r.result);
       if(!d.accounts||!d.entries) throw new Error('bad');
-      if(confirm('Import will replace your current data. Continue?')){
-        state={accounts:d.accounts||[], entries:d.entries||{}, notes:d.notes||{}, schema:d.schema};
-        migrateToWeekly(); store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear();
+      // If the file has no robots of its own, keep the roster you already have —
+      // importing accounts should never wipe your robots.
+      const keepRobots = ('robots' in d) ? (d.robots||[]) : (state.robots||[]);
+      const msg = ('robots' in d)
+        ? 'Import will replace your accounts, P&L, AND robots. Continue?'
+        : 'Import will replace your accounts and P&L. Your robot roster will be kept. Continue?';
+      if(confirm(msg)){
+        state={accounts:d.accounts||[], entries:d.entries||{}, notes:d.notes||{}, robots:keepRobots, schema:d.schema, acctCurrencyCleaned:d.acctCurrencyCleaned||false};
+        migrateToWeekly(); cleanAccountCurrency(); store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear(); renderRobots();
         toast('Data imported');
       }
     }catch(err){alert('Could not read that file.');}
@@ -1385,10 +1744,14 @@ $('#importFile').addEventListener('change',e=>{
    INIT
    ============================================================ */
 migrateToWeekly();
+cleanAccountCurrency();
+// the AI chart-read feature was removed — purge its leftover local storage (incl. the API key)
+['orbApiKey','orbAiModel','orbDraftNotes'].forEach(k=>localStorage.removeItem(k));
 buildColorPicker();
 renderDashboard();
 renderCalendar();
 renderYear();
+renderRobots();
 </script>
 </body>
 </html>

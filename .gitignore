@@ -1,0 +1,8 @@
+# macOS junk
+.DS_Store
+
+# Personal data — keep out of the public repo (real broker account numbers & P&L)
+accounts.json
+robots-only.json
+robots-last-week.json
+trading-book-*.json
