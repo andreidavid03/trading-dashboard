@@ -320,12 +320,13 @@
   .flow-item .fi-date{color:var(--txt-faint);margin-left:auto;font-size:11.5px}
   .flow-item .fi-del{width:20px;height:20px;border-radius:5px;background:transparent;border:none;color:var(--txt-faint);cursor:pointer;font-size:15px;line-height:1;display:grid;place-items:center}
   .flow-item .fi-del:hover{color:var(--red)}
-  .flow-add{display:flex;gap:7px;align-items:center}
-  .flow-add .in{position:relative;flex:1;min-width:0}
+  .flow-add{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .flow-add .in{position:relative;flex:2 1 150px;min-width:140px}
   .flow-add .in span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--txt-faint);font-size:13px}
   .flow-add .in input{width:100%;background:var(--bg-2);border:1px solid var(--line-soft);border-radius:9px;color:var(--txt);font-family:inherit;font-size:13px;padding:9px 10px 9px 20px}
   .flow-add select,.flow-add input[type=date]{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:9px;color:var(--txt);font-family:inherit;font-size:12.5px;padding:9px 8px}
-  .flow-add input[type=date]{color-scheme:dark;width:130px}
+  .flow-add select{flex:1 1 110px;min-width:108px}
+  .flow-add input[type=date]{color-scheme:dark;flex:1 1 128px;min-width:120px;width:auto}
   .flow-add .in input:focus,.flow-add select:focus,.flow-add input:focus{outline:none;border-color:var(--accent)}
   .flow-add-btn{width:36px;height:36px;flex-shrink:0;border-radius:9px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);font-size:20px;line-height:1;cursor:pointer;transition:.15s}
   .flow-add-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -392,6 +393,25 @@
   #storageBanner b{color:#fff}
   #storageBanner button{margin-left:10px;background:rgba(255,255,255,.12);border:none;color:#fff;font-family:inherit;font-size:12px;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;white-space:nowrap}
   #storageBanner button:hover{background:rgba(255,255,255,.2)}
+
+  /* deposits planner */
+  .plan-group{margin-bottom:22px}
+  .plan-group-head{display:flex;align-items:center;justify-content:space-between;margin:0 2px 11px;font-size:13px;font-weight:750;letter-spacing:.2px}
+  .plan-group-total{font-size:12px;font-weight:700;color:var(--accent);background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.22);padding:3px 10px;border-radius:20px;font-variant-numeric:tabular-nums}
+  .plan-item{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:13px 16px;margin-bottom:9px;transition:.15s}
+  .plan-item:hover{border-color:var(--line)}
+  .plan-item.done{opacity:.62}
+  .plan-date{font-size:12px;font-weight:700;color:var(--txt-dim);min-width:52px;font-variant-numeric:tabular-nums}
+  .plan-main{flex:1;min-width:0}
+  .plan-acct{font-size:14px;font-weight:650;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .plan-note{font-size:11.5px;color:var(--txt-faint);margin-top:3px}
+  .plan-repeat{font-size:10px;font-weight:700;color:var(--accent);background:rgba(91,140,255,.1);padding:2px 7px;border-radius:20px;letter-spacing:.2px}
+  .plan-amt{font-size:15px;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .plan-actions{display:flex;gap:6px}
+  .plan-actions button{background:var(--bg-2);border:1px solid var(--line);color:var(--txt-dim);font-family:inherit;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .plan-actions button:hover{color:var(--txt);border-color:var(--txt-faint)}
+  .plan-actions button.del:hover{color:var(--red);border-color:var(--red)}
+  @media(max-width:640px){.plan-item{flex-wrap:wrap}.plan-actions{width:100%}}
 </style>
 </head>
 <body>
@@ -429,6 +449,10 @@
       <button data-view="accounts">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg>
         Accounts
+      </button>
+      <button data-view="deposits">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.2c0-1 1.1-1.7 2.5-1.7s2.5.6 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.7 2.5 1.7 2.5-.6 2.5-1.6"/></svg>
+        Deposits
       </button>
     </nav>
   </header>
@@ -571,6 +595,63 @@
     <div class="acct-manage" id="acctManage"></div>
   </section>
 
+  <!-- ================= DEPOSITS (PLANNER) ================= -->
+  <section id="deposits" class="view">
+    <div class="section-title">
+      <h2>Deposits <span style="font-size:12px;font-weight:600;color:var(--txt-faint)">· plan your next deposits</span></h2>
+      <div class="toolbar">
+        <button class="btn" id="planAddBtn" style="padding:8px 14px;font-size:12.5px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Plan a deposit
+        </button>
+      </div>
+    </div>
+    <div class="stat-grid" id="planSummary" style="margin-bottom:18px"></div>
+    <div id="planGroups"></div>
+  </section>
+
+</div>
+
+<!-- ============ PLAN DEPOSIT MODAL ============ -->
+<div class="overlay" id="planOverlay">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-head">
+      <div><h3 id="planModalTitle">Plan a deposit</h3><p id="planModalSub">Schedule money going into an account</p></div>
+      <button class="x" data-close="planOverlay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="planId">
+      <div class="field">
+        <label>Account</label>
+        <select id="planAccount"></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Amount</label>
+          <input type="number" id="planAmount" placeholder="0" step="any">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="planDate">
+        </div>
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer">
+          <input type="checkbox" id="planRepeat" style="width:auto">
+          <span>Repeat every month <span style="color:var(--txt-faint);font-weight:500">(auto-schedules the next one when this posts)</span></span>
+        </label>
+      </div>
+      <div class="field">
+        <label>Note <span style="color:var(--txt-faint);font-weight:500">(optional)</span></label>
+        <input type="text" id="planNote" placeholder="e.g. payday top-up, prop challenge fee">
+      </div>
+      <p class="flows-hint">When the date arrives, this is posted automatically as a deposit on the account — updating its capital invested and balance. You can undo it anytime.</p>
+      <div class="modal-foot">
+        <button class="btn ghost" data-close="planOverlay">Cancel</button>
+        <button class="btn" id="savePlan">Save plan</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ============ ACCOUNT MODAL ============ -->
@@ -738,8 +819,8 @@ const store = {
   load(){
     try{
       const d = JSON.parse(localStorage.getItem('tradingBook')||'{}');
-      return { accounts: d.accounts||[], entries: d.entries||{}, notes: d.notes||{}, robots: d.robots||[], schema: d.schema, acctCurrencyCleaned: d.acctCurrencyCleaned||false };
-    }catch(e){ this.ok=false; return { accounts:[], entries:{}, notes:{}, robots:[] }; }
+      return { accounts: d.accounts||[], entries: d.entries||{}, notes: d.notes||{}, robots: d.robots||[], plans: d.plans||[], schema: d.schema, acctCurrencyCleaned: d.acctCurrencyCleaned||false };
+    }catch(e){ this.ok=false; return { accounts:[], entries:{}, notes:{}, robots:[], plans:[] }; }
   },
   save(){
     try{ localStorage.setItem('tradingBook', JSON.stringify(state)); this.ok=true; }
@@ -927,6 +1008,7 @@ $$('nav.tabs button').forEach(b=>b.addEventListener('click',()=>{
   if(b.dataset.view==='year') renderYear();
   if(b.dataset.view==='robots') renderRobots();
   if(b.dataset.view==='accounts') renderAccounts();
+  if(b.dataset.view==='deposits') renderDeposits();
 }));
 
 /* overlays close */
@@ -1707,6 +1789,197 @@ $('#saveDay').addEventListener('click',()=>{
 });
 
 /* ============================================================
+   DEPOSITS — planner. state.plans[] = {id, accountId, amount,
+   date (YMD it should post), note, repeat, appliedFlowId}.
+   When the date arrives the plan auto-posts a real deposit flow
+   onto the account, so capital invested / balance update on their own.
+   ============================================================ */
+function addMonthsYmd(s,n){
+  const d=parseYmd(s), day=d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth()+n);
+  const dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+  d.setDate(Math.min(day,dim));
+  return ymd(d);
+}
+function planAccount(p){ return state.accounts.find(a=>a.id===p.accountId); }
+
+// Post any planned deposits whose date has arrived. Returns true if anything changed.
+function applyDuePlans(){
+  const today=ymd(new Date());
+  let changed=false;
+  (state.plans||[]).forEach(p=>{
+    if(p.appliedFlowId) return;
+    if(p.date>today) return;                 // not due yet
+    const acct=planAccount(p);
+    if(!acct){ return; }                     // account gone — leave the plan, skip
+    const flow={id:uid(), amount:Math.abs(Number(p.amount)||0), type:'deposit', date:p.date, fromPlan:p.id};
+    (acct.flows=acct.flows||[]).push(flow);
+    p.appliedFlowId=flow.id;
+    changed=true;
+    // recurring: schedule next month's deposit once, if not already there
+    if(p.repeat){
+      const nd=addMonthsYmd(p.date,1);
+      const dup=(state.plans||[]).some(q=>q.accountId===p.accountId && q.date===nd && Math.abs(Number(q.amount))===Math.abs(Number(p.amount)));
+      if(!dup) state.plans.push({id:uid(), accountId:p.accountId, amount:p.amount, date:nd, note:p.note||'', repeat:true, appliedFlowId:null});
+    }
+  });
+  if(changed) store.save();
+  return changed;
+}
+
+let planSelColor=null;
+window.openPlanModal=function(plan=null){
+  const opts=state.accounts.map(a=>`<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+  $('#planAccount').innerHTML = opts || `<option value="">— add an account first —</option>`;
+  if(plan){
+    $('#planModalTitle').textContent='Edit planned deposit';
+    $('#planModalSub').textContent='Update this scheduled deposit';
+    $('#planId').value=plan.id;
+    $('#planAccount').value=plan.accountId;
+    $('#planAmount').value=plan.amount;
+    $('#planDate').value=plan.date;
+    $('#planNote').value=plan.note||'';
+    $('#planRepeat').checked=!!plan.repeat;
+  } else {
+    $('#planModalTitle').textContent='Plan a deposit';
+    $('#planModalSub').textContent='Schedule money going into an account';
+    $('#planId').value='';
+    if(state.accounts[0]) $('#planAccount').value=state.accounts[0].id;
+    $('#planAmount').value='';
+    $('#planDate').value=addMonthsYmd(ymd(new Date()),1).slice(0,8)+'01'; // 1st of next month
+    $('#planNote').value='';
+    $('#planRepeat').checked=false;
+  }
+  openOverlay('planOverlay');
+  setTimeout(()=>$('#planAmount').focus(),50);
+};
+
+function savePlan(){
+  const accountId=$('#planAccount').value;
+  const amount=parseFloat($('#planAmount').value);
+  const date=$('#planDate').value;
+  if(!accountId){ toast('Add an account first','warn'); return; }
+  if(!amount||amount<=0){ $('#planAmount').focus(); toast('Enter an amount','warn'); return; }
+  if(!date){ $('#planDate').focus(); toast('Pick a date','warn'); return; }
+  const id=$('#planId').value;
+  const data={accountId, amount:Math.abs(amount), date, note:$('#planNote').value.trim(), repeat:$('#planRepeat').checked};
+  const editing=!!id;
+  if(id){ const p=state.plans.find(x=>x.id===id); if(p) Object.assign(p,data); }
+  else { (state.plans=state.plans||[]).push({id:uid(), ...data, appliedFlowId:null}); }
+  applyDuePlans();               // post immediately if the date is already here/past
+  store.save();
+  closeOverlay('planOverlay');
+  renderDeposits(); renderAccounts(); renderDashboard();
+  toast(editing?'Plan updated':'Deposit planned');
+}
+$('#savePlan').addEventListener('click',savePlan);
+$('#planAddBtn').addEventListener('click',()=>openPlanModal());
+
+window.editPlan=id=>openPlanModal(state.plans.find(p=>p.id===id));
+window.postPlanNow=id=>{
+  const p=state.plans.find(x=>x.id===id); if(!p||p.appliedFlowId) return;
+  const acct=planAccount(p); if(!acct){ toast('That account no longer exists','warn'); return; }
+  const flow={id:uid(), amount:Math.abs(Number(p.amount)||0), type:'deposit', date:ymd(new Date()), fromPlan:p.id};
+  (acct.flows=acct.flows||[]).push(flow);
+  p.appliedFlowId=flow.id;
+  if(p.repeat){
+    const nd=addMonthsYmd(p.date,1);
+    const dup=(state.plans||[]).some(q=>q.accountId===p.accountId && q.date===nd && Math.abs(Number(q.amount))===Math.abs(Number(p.amount)));
+    if(!dup) state.plans.push({id:uid(), accountId:p.accountId, amount:p.amount, date:nd, note:p.note||'', repeat:true, appliedFlowId:null});
+  }
+  store.save(); renderDeposits(); renderAccounts(); renderDashboard();
+  toast(`Deposited ${money(p.amount)} to ${acct.name}`);
+};
+window.undoPlan=id=>{
+  const p=state.plans.find(x=>x.id===id); if(!p) return;
+  const acct=planAccount(p);
+  if(!confirm(`Undo this deposit?\n\n${money(p.amount)}${acct?` will be removed from "${acct.name}"`:''} and this entry is removed. Any future monthly repeats stay scheduled.`)) return;
+  if(acct && p.appliedFlowId){ acct.flows=(acct.flows||[]).filter(f=>f.id!==p.appliedFlowId); }
+  // remove the occurrence itself so a past-due plan doesn't just auto-repost
+  state.plans=state.plans.filter(x=>x.id!==id);
+  store.save(); renderDeposits(); renderAccounts(); renderDashboard();
+  toast('Deposit undone','del');
+};
+window.deletePlan=id=>{
+  const p=state.plans.find(x=>x.id===id); if(!p) return;
+  const acct=planAccount(p);
+  const applied=!!p.appliedFlowId;
+  const msg=applied
+    ? `Delete this plan?\n\nThe ${money(p.amount)} already posted to "${acct?acct.name:'the account'}" will STAY on the account. Only the plan entry is removed.`
+    : `Delete this planned deposit (${money(p.amount)})?`;
+  if(!confirm(msg)) return;
+  state.plans=state.plans.filter(x=>x.id!==id);
+  store.save(); renderDeposits();
+  toast('Plan removed','del');
+}
+
+function renderDeposits(){
+  applyDuePlans();
+  const sum=$('#planSummary'), groups=$('#planGroups');
+  const plans=(state.plans||[]).slice();
+  if(!state.accounts.length){
+    sum.innerHTML=''; groups.innerHTML=`<div class="empty-state panel"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v10"/></svg></div><h3>No accounts yet</h3><p>Add a broker account first, then plan deposits into it.</p></div>`;
+    return;
+  }
+  const today=ymd(new Date());
+  const pending=plans.filter(p=>!p.appliedFlowId);
+  const thisMonth=today.slice(0,7);
+  const pendTotal=pending.reduce((t,p)=>t+(Number(p.amount)||0),0);
+  const pendThisMonth=pending.filter(p=>p.date.slice(0,7)===thisMonth).reduce((t,p)=>t+(Number(p.amount)||0),0);
+  const next=pending.slice().sort((a,b)=>a.date<b.date?-1:1)[0];
+  const postedCount=plans.filter(p=>p.appliedFlowId).length;
+  const tile=(l,v,sub)=>`<div class="stat-tile"><div class="st-l">${l}</div><div class="st-v">${v}</div>${sub?`<div class="st-sub">${sub}</div>`:''}</div>`;
+  const nextAcct=next?planAccount(next):null;
+  sum.innerHTML =
+    tile('Planned (pending)', money(pendTotal), `${pending.length} deposit${pending.length===1?'':'s'} scheduled`)
+    + tile('This month', money(pendThisMonth), MONTHS[new Date().getMonth()])
+    + tile('Next deposit', next?money(next.amount):'—', next?`${parseYmd(next.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${nextAcct?nextAcct.name:'—'}`:'nothing scheduled')
+    + tile('Posted', postedCount, 'already added to accounts');
+
+  if(!plans.length){
+    groups.innerHTML=`<div class="empty-state panel"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.2c0-1 1.1-1.7 2.5-1.7s2.5.6 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.7 2.5 1.7 2.5-.6 2.5-1.6"/></svg></div><h3>No deposits planned</h3><p>Hit “Plan a deposit” to schedule your next top-ups. They post to the account automatically on their date.</p></div>`;
+    return;
+  }
+  // group by month
+  const byMonth={};
+  plans.forEach(p=>{ (byMonth[p.date.slice(0,7)]=byMonth[p.date.slice(0,7)]||[]).push(p); });
+  const months=Object.keys(byMonth).sort();
+  groups.innerHTML=months.map(mo=>{
+    const [y,m]=mo.split('-').map(Number);
+    const items=byMonth[mo].sort((a,b)=>a.date<b.date?-1:1);
+    const monthPend=items.filter(p=>!p.appliedFlowId).reduce((t,p)=>t+(Number(p.amount)||0),0);
+    const rows=items.map(p=>{
+      const acct=planAccount(p);
+      const done=!!p.appliedFlowId;
+      const dot=acct?`<span class="dot" style="background:${acct.color}"></span>`:'';
+      const dstr=parseYmd(p.date).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      const overdue=!done && p.date<today;
+      const badge=done
+        ? `<span class="rb-badge running">Deposited</span>`
+        : (overdue?`<span class="rb-badge waiting">Posting…</span>`:`<span class="rb-badge paused">Planned</span>`);
+      const repeat=p.repeat?`<span class="plan-repeat" title="Repeats monthly">↻ monthly</span>`:'';
+      const actions=done
+        ? `<button onclick='undoPlan("${p.id}")'>Undo</button><button class="del" onclick='deletePlan("${p.id}")'>Delete</button>`
+        : `<button onclick='postPlanNow("${p.id}")'>Post now</button><button onclick='editPlan("${p.id}")'>Edit</button><button class="del" onclick='deletePlan("${p.id}")'>Delete</button>`;
+      return `<div class="plan-item ${done?'done':''}">
+        <div class="plan-date">${dstr}</div>
+        <div class="plan-main">
+          <div class="plan-acct">${dot}${acct?escapeHtml(acct.name):'<span style="color:var(--red)">account deleted</span>'} ${repeat}</div>
+          ${p.note?`<div class="plan-note">${escapeHtml(p.note)}</div>`:''}
+        </div>
+        <div class="plan-amt">${money(p.amount)}</div>
+        ${badge}
+        <div class="plan-actions">${actions}</div>
+      </div>`;
+    }).join('');
+    return `<div class="plan-group">
+      <div class="plan-group-head"><span>${MONTHS[m-1]} ${y}</span>${monthPend?`<span class="plan-group-total">${money(monthPend)} to deposit</span>`:''}</div>
+      ${rows}
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
    EXPORT / IMPORT
    ============================================================ */
 $('#exportBtn').addEventListener('click',()=>{
@@ -1727,12 +2000,13 @@ $('#importFile').addEventListener('change',e=>{
       // If the file has no robots of its own, keep the roster you already have —
       // importing accounts should never wipe your robots.
       const keepRobots = ('robots' in d) ? (d.robots||[]) : (state.robots||[]);
+      const keepPlans  = ('plans'  in d) ? (d.plans||[])  : (state.plans||[]);
       const msg = ('robots' in d)
         ? 'Import will replace your accounts, P&L, AND robots. Continue?'
         : 'Import will replace your accounts and P&L. Your robot roster will be kept. Continue?';
       if(confirm(msg)){
-        state={accounts:d.accounts||[], entries:d.entries||{}, notes:d.notes||{}, robots:keepRobots, schema:d.schema, acctCurrencyCleaned:d.acctCurrencyCleaned||false};
-        migrateToWeekly(); cleanAccountCurrency(); store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear(); renderRobots();
+        state={accounts:d.accounts||[], entries:d.entries||{}, notes:d.notes||{}, robots:keepRobots, plans:keepPlans, schema:d.schema, acctCurrencyCleaned:d.acctCurrencyCleaned||false};
+        migrateToWeekly(); cleanAccountCurrency(); store.save(); renderAccounts(); renderDashboard(); renderCalendar(); renderYear(); renderRobots(); renderDeposits();
         toast('Data imported');
       }
     }catch(err){alert('Could not read that file.');}
@@ -1745,6 +2019,8 @@ $('#importFile').addEventListener('change',e=>{
    ============================================================ */
 migrateToWeekly();
 cleanAccountCurrency();
+if(!state.plans) state.plans=[];
+applyDuePlans();   // post any deposits that came due while the app was closed
 // the AI chart-read feature was removed — purge its leftover local storage (incl. the API key)
 ['orbApiKey','orbAiModel','orbDraftNotes'].forEach(k=>localStorage.removeItem(k));
 buildColorPicker();
@@ -1752,6 +2028,7 @@ renderDashboard();
 renderCalendar();
 renderYear();
 renderRobots();
+renderDeposits();
 </script>
 </body>
 </html>
