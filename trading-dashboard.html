@@ -1289,6 +1289,12 @@ function saveAccount(){
     return;
   }
   $('#acctName').style.borderColor='';
+  // commit a deposit/withdrawal still typed in the box that wasn't added with "+"
+  const pendingAmt=parseFloat($('#flowAmount').value);
+  if(pendingAmt&&pendingAmt>0){
+    modalFlows.push({id:uid(), amount:Math.abs(pendingAmt), type:$('#flowType').value, date:$('#flowDate').value||ymd(new Date())});
+    $('#flowAmount').value='';
+  }
   const id=$('#acctId').value;
   const data={
     name, source:$('#acctSource').value.trim(),
