@@ -10,6 +10,7 @@ A private robot-testing lab and P&L journal — a single HTML file, no install, 
 - **Calendar** — one row per trading week; log each robot's result, add notes and tags, filter by account or robot.
 - **Combine** — given your equity and the largest drawdown you'd accept, shows which robots fit alone and in pairs, using the day-by-day results from the imported reports (combined drawdown, worst case, correlation). It is arithmetic on past results, not a forecast.
 - **Deposits** — plan future deposits per account; each posts itself on its date, with optional monthly repeat.
+- **Lot size** — position sizing for manual trades: risk a % of balance or a fixed amount, get the lots for any instrument, split across up to four take profits, and see the lots that risk the same amount on every pair. Contract sizes are editable and can be worked out from one real trade.
 - **Chart** — a live TradingView chart for manual trading (the only screen that needs internet).
 - **Settings** — season start, robots-per-account limit, backup and restore.
 

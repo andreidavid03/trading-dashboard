@@ -256,6 +256,11 @@
   .kv div span{color:var(--txt-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .kv div b{font-weight:620;font-family:var(--mono);font-size:12px}
 
+  details.cal{border:1px solid var(--line-soft);border-radius:10px;padding:10px 12px;background:var(--panel-2)}
+  details.cal summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--txt-dim)}
+  details.cal[open] summary{margin-bottom:11px}
+  .btn:disabled{opacity:.4;cursor:default}
+
   @media (max-width:980px){
     .app{grid-template-columns:1fr}
     .side{position:static;height:auto;flex-direction:row;align-items:center;gap:10px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
@@ -294,6 +299,7 @@
     <section id="calendar" class="view"></section>
     <section id="lab" class="view"></section>
     <section id="deposits" class="view"></section>
+    <section id="lots" class="view"></section>
     <section id="chart" class="view"></section>
     <section id="settings" class="view"></section>
   </main>
@@ -410,6 +416,27 @@
   <div class="modal-body"><div class="progress"><i id="impBar"></i></div><p class="faint" style="font-size:12px" id="impHint">Big Strategy Tester reports can take a few seconds.</p></div>
 </div></div>
 
+<!-- ============ INSTRUMENT MODAL ============ -->
+<div class="overlay" id="instOverlay"><div class="modal">
+  <div class="modal-head"><div><h3 id="inTitle">Instrument</h3><p>Match these to MT5: right-click the symbol → Specification</p></div><button class="x" data-close="instOverlay" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="inId">
+    <div class="field-row"><div class="field"><label>Symbol</label><input id="inName" placeholder="e.g. XAUUSD-STDc"></div><div class="field"><label>Contract size <em>(units in 1 lot)</em></label><input type="number" min="0" step="any" id="inContract" placeholder="gold 100 · forex 100000"></div></div>
+    <div class="field"><label>Profit is counted in</label><select id="inKind"><option value="usd">US dollars — XAUUSD, EURUSD, BTCUSD, indices</option><option value="base">The second currency, USD first — USDJPY, USDCAD, USDCHF</option><option value="rate">Another currency — crosses like EURGBP, GBPJPY</option></select></div>
+    <div class="field" id="inRateWrap"><label>1 unit of that currency = how many USD</label><input type="number" min="0" step="any" id="inRate" placeholder="e.g. GBP 1.33 · JPY 0.0066"></div>
+    <div class="field" id="inRefWrap"><label>Current price <em>(used in the “same risk” table)</em></label><input type="number" min="0" step="any" id="inRef" placeholder="e.g. 152.40"></div>
+    <div class="field-row three"><div class="field"><label>Pip size</label><input type="number" min="0" step="any" id="inPip" placeholder="0.0001"></div><div class="field"><label>Lot step</label><input type="number" min="0" step="any" id="inStep"></div><div class="field"><label>Minimum lot</label><input type="number" min="0" step="any" id="inMin"></div></div>
+    <details class="cal" id="inCal"><summary>Not sure about the contract size? Work it out from a real trade</summary>
+      <div class="stack" style="gap:11px">
+        <div class="field-row three"><div class="field"><label>Lots</label><input type="number" min="0" step="any" id="calLots"></div><div class="field"><label>Open price</label><input type="number" min="0" step="any" id="calOpen"></div><div class="field"><label>Close price</label><input type="number" min="0" step="any" id="calClose"></div></div>
+        <div class="field"><label>Profit or loss on that trade</label><input type="number" step="any" id="calProfit"><span class="faint" style="font-size:12px" id="calAcct"></span></div>
+        <div><button type="button" class="btn" id="calGo">Work it out</button></div>
+        <p class="pos" style="font-size:12.5px" id="calOut"></p>
+      </div></details>
+    <div class="modal-foot"><button class="btn danger" id="inDelete" style="flex:0 0 auto">Remove</button><button class="btn ghost" data-close="instOverlay">Cancel</button><button class="btn primary" id="inSave">Save</button></div>
+  </div>
+</div></div>
+
 <input type="file" id="reportFile" accept=".html,.htm" multiple hidden>
 <input type="file" id="backupFile" accept="application/json,.json" hidden>
 <div id="tip"></div>
@@ -463,14 +490,15 @@ const STAGE_LABEL=Object.fromEntries(STAGES);
 const AC_STATUS=['running','waiting','paused'], AC_LABEL={running:'Active',waiting:'Waiting',paused:'Paused'};
 const SRC_LABEL={tester:'Backtest',forward:'Forward test',history:'Live history'};
 
-function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',maxPerAccount:2,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}}}; }
+function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',maxPerAccount:2,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}},
+  instruments:defaultInstruments(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
 const store={
   ok:true, warned:false,
   load(){
     try{
       const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(!d) return blank();
       const b=blank();
-      return {...b,...d,settings:{...b.settings,...(d.settings||{})},lab:{...b.lab,...(d.lab||{})}};
+      return {...b,...d,settings:{...b.settings,...(d.settings||{})},lab:{...b.lab,...(d.lab||{})},calc:{...b.calc,...(d.calc||{})}};
     }catch(e){ this.ok=false; return blank(); }
   },
   save(){
@@ -783,10 +811,11 @@ const ICON={
   coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.1 1.1-1.8 2.5-1.8s2.5.6 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.8 2.5 1.8 2.5-.7 2.5-1.7"/>',
   chart:'<path d="M7 4v4M7 16v4M17 3v3M17 14v6"/><rect x="5" y="8" width="4" height="8" rx="1"/><rect x="15" y="6" width="4" height="8" rx="1"/>',
   gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  calc:'<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', up:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>', down:'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>', back:'<path d="M15 6l-6 6 6 6"/>'
 };
 const ico=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
-const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],'sep',['chart','Chart','chart'],['settings','Settings','gear']];
+const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],'sep',['lots','Lot size','calc'],['chart','Chart','chart'],['settings','Settings','gear']];
 const RENDER={}, ACT={}, CHG={};
 let curView='overview';
 function buildNav(){ $('#nav').innerHTML=NAV.map(n=>n==='sep'?'<div class="sep"></div>':`<button data-view="${n[0]}">${ico(n[2])}<span>${n[1]}</span><span class="cnt" id="cnt-${n[0]}"></span></button>`).join(''); }
@@ -1335,6 +1364,163 @@ ACT.tvSym=id=>{ state.settings.tvSymbol=id; store.save(); render(); };
 ACT.tvInt=id=>{ state.settings.tvInterval=id; store.save(); render(); };
 
 /* ============================================================
+   LOT SIZE — position sizing for manual trades. Pure arithmetic:
+   lots = money risked ÷ (stop distance × value of a 1.00 move on 1 lot)
+   ============================================================ */
+function defaultInstruments(){
+  const fxp=(name,kind,pip)=>({id:name.toLowerCase(),name,contract:100000,kind,rate:'',ref:'',pip:pip||0.0001,step:0.01,min:0.01,stop:20});
+  return [
+    {id:'xauusd',name:'XAUUSD',contract:100,kind:'usd',rate:'',ref:'',pip:0.1,step:0.01,min:0.01,stop:50},
+    fxp('EURUSD','usd'),fxp('GBPUSD','usd'),fxp('AUDUSD','usd'),fxp('USDJPY','base',0.01),fxp('USDCAD','base'),fxp('USDCHF','base'),
+    {id:'btcusd',name:'BTCUSD',contract:1,kind:'usd',rate:'',ref:'',pip:1,step:0.01,min:0.01,stop:500},
+    {id:'nas100',name:'NAS100',contract:1,kind:'usd',rate:'',ref:'',pip:1,step:0.1,min:0.1,stop:50},
+    {id:'us30',name:'US30',contract:1,kind:'usd',rate:'',ref:'',pip:1,step:0.1,min:0.1,stop:100}
+  ];
+}
+const instById=id=>state.instruments.find(i=>i.id===id);
+function calcCtx(){
+  const c=state.calc, a=acctById(c.accountId), fx=a?fxOf(a):1, cur=a?a.currency||'USD':'USD', bal=parseFloat(c.balance);
+  return {a,fx,cur,bal,risk:c.mode==='amount'?parseFloat(c.amount):bal*parseFloat(c.pct)/100};
+}
+// what a 1.00 move in price is worth on 1 lot, in the account's currency
+function instValue(inst,price,fx){ const q=inst.kind==='base'?(price>0?1/price:NaN):inst.kind==='rate'?Number(inst.rate):1; return Number(inst.contract)*q/fx; }
+const floorStep=(v,step)=>Math.floor(v/step+1e-9)*step;
+const lotFmt=(v,step)=>v.toFixed(Math.max(0,Math.min(3,Math.ceil(-Math.log10(Number(step)||0.01)-1e-9))));
+const trim=(v,dp=5)=>String(parseFloat(Number(v).toFixed(dp)));
+function calcResult(){
+  const c=state.calc, {fx,cur,bal,risk}=calcCtx(), inst=instById(c.instId), entry=parseFloat(c.entry), sl=parseFloat(c.sl), out={inst,cur,bal,risk,errs:[]};
+  if(!inst){ out.errs.push('Pick an instrument.'); return out; }
+  if(!(risk>0)) out.errs.push(c.mode==='amount'?'Enter the amount you want to risk.':'Enter your balance and the % to risk.');
+  if(!(entry>0)||!(sl>0)) out.errs.push('Enter the entry price and the stop loss.');
+  else if(entry===sl) out.errs.push('Entry and stop loss are the same price.');
+  if(out.errs.length) return out;
+  const V=instValue(inst,entry,fx);
+  if(!(V>0)){ out.errs.push(inst.kind==='rate'?`Open “${inst.name}” with Edit and set its quote-currency rate.`:`“${inst.name}” has no contract size — set it with Edit.`); return out; }
+  const dist=Math.abs(entry-sl), perLot=dist*V, raw=risk/perLot, step=Number(inst.step)||0.01, min=Number(inst.min)||step, lots=floorStep(raw,step), buy=entry>sl;
+  Object.assign(out,{entry,sl,dist,V,perLot,raw,step,min,lots,buy,realRisk:lots*perLot});
+  const tps=c.tps.map(t=>({p:parseFloat(t.p),pct:parseFloat(t.pct)||0})).filter(t=>t.p>0), full=sum(tps.map(t=>t.pct))>=99.5;
+  let left=lots;
+  out.tps=tps.map((t,i)=>{ const want=floorStep(lots*t.pct/100,step), l=full&&i===tps.length-1?left:Math.min(left,want); left=Math.max(0,+(left-l).toFixed(6)); const d=(t.p-entry)*(buy?1:-1); return {p:t.p,pct:t.pct,lots:l,profit:l*d*V,r:d/dist,wrong:d<=0}; });
+  out.left=tps.length?left:0; out.pctSum=sum(tps.map(t=>t.pct));
+  return out;
+}
+function paintCalc(){
+  const host=$('#calcOut'); if(!host) return;
+  const r=calcResult(), m=v=>nativeMoney({currency:r.cur},v);
+  if(r.errs.length) host.innerHTML=`<div class="panel-head"><h3>Position size</h3></div><div class="empty" style="padding:44px 10px"><p>${r.errs.map(esc).join('<br>')}</p></div>`;
+  else{
+    const warn=[];
+    if(r.lots<r.min) warn.push(['bad',`Even the smallest size (${lotFmt(r.min,r.step)} lots) would lose ${m(r.min*r.perLot)} at this stop — more than the ${m(r.risk)} you set. The stop is too wide for this risk on this account.`]);
+    if(r.tps.some(t=>t.wrong)) warn.push(['bad',`A take profit is on the wrong side of the entry for a ${r.buy?'buy':'sell'}.`]);
+    if(r.pctSum>100.5) warn.push(['warn',`The take-profit splits add up to ${trim(r.pctSum,1)}% — more than the whole position.`]);
+    if(r.lots>=r.min&&r.tps.some(t=>t.pct>0&&t.lots<r.min)) warn.push(['warn',`The position is too small to split this way in ${lotFmt(r.step,r.step)}-lot steps — some parts round down to nothing.`]);
+    const pips=r.inst.pip>0?` · ${trim(r.dist/r.inst.pip,1)} pips`:'';
+    const tot=sum(r.tps.map(t=>t.profit)), ok=r.lots>=r.min;
+    host.innerHTML=`<div class="panel-head"><h3>Position size</h3><span class="hint">${r.buy?'Buy':'Sell'} ${esc(r.inst.name)}</span></div>
+      <div class="hero"><div><div class="lbl">Lots</div><div class="big">${ok?lotFmt(r.lots,r.step):'—'}</div>
+        <div class="sub">${ok?`<span>If stopped out you lose <b>${m(r.realRisk)}</b>${r.bal>0?` · ${(r.realRisk/r.bal*100).toFixed(2)}% of balance`:''}</span>`:''}</div></div></div>
+      <div class="rows" style="margin-top:14px">
+        <div class="row"><span class="l">Risk you set</span><span class="r">${m(r.risk)}</span></div>
+        <div class="row"><span class="l">Stop distance</span><span class="r">${trim(r.dist)}${pips}</span></div>
+        <div class="row"><span class="l">One full lot, if stopped</span><span class="r">${m(r.perLot)}</span></div>
+        <div class="row"><span class="l">Exact size before rounding</span><span class="r">${r.raw.toFixed(4)} <span class="faint">→ rounded down</span></span></div>
+      </div>
+      ${ok&&r.tps.length?`<div class="tbl-wrap" style="margin-top:14px"><table class="tbl"><thead><tr><th>Target</th><th class="r">Price</th><th class="r">Close</th><th class="r">Profit</th><th class="r">Reward : risk</th></tr></thead><tbody>
+        ${r.tps.map((t,i)=>`<tr><td>TP${i+1}</td><td class="r">${trim(t.p)}</td><td class="r">${lotFmt(t.lots,r.step)} lots</td><td class="r ${cls(t.profit)}">${t.profit>=0?'+':'−'}${m(Math.abs(t.profit)).replace('−','')}</td><td class="r">${t.r.toFixed(2)} R</td></tr>`).join('')}
+        ${r.left>0?`<tr><td colspan="2">Left running, no target</td><td class="r">${lotFmt(r.left,r.step)} lots</td><td colspan="2"></td></tr>`:''}
+        <tr><td colspan="3"><b>If every target is hit</b></td><td class="r ${cls(tot)}"><b>${tot>=0?'+':'−'}${m(Math.abs(tot)).replace('−','')}</b></td><td class="r"><b>${r.realRisk>0?(tot/r.realRisk).toFixed(2):'—'} R</b></td></tr>
+      </tbody></table></div>`:''}
+      ${warn.length?`<div class="flags" style="margin-top:14px">${warn.map(w=>`<div class="flag ${w[0]}">${esc(w[1])}</div>`).join('')}</div>`:''}`;
+  }
+  // same risk on every instrument
+  const {fx,risk}=calcCtx(), entry=parseFloat(state.calc.entry);
+  state.instruments.forEach(i=>{
+    const td=$(`[data-eq="${i.id}"]`); if(!td) return;
+    const V=instValue(i,i.id===state.calc.instId&&entry>0?entry:Number(i.ref),fx), stop=Number(i.stop)*Number(i.pip);
+    if(!(risk>0)||!(stop>0)){ td.textContent='—'; return; }
+    if(!(V>0)){ td.innerHTML=`<span class="faint">${i.kind==='base'?'set its current price':i.kind==='rate'?'set its rate':'set contract size'}</span>`; return; }
+    const l=floorStep(risk/(stop*V),Number(i.step)||0.01);
+    td.innerHTML=l>=(Number(i.min)||0.01)?`<b>${lotFmt(l,i.step)}</b>`:'<span class="neg">below the minimum lot</span>';
+  });
+}
+RENDER.lots=function(){
+  const el=$('#lots'), c=state.calc;
+  if(c.accountId&&!acctById(c.accountId)) c.accountId='';
+  if(!instById(c.instId)) c.instId=(state.instruments[0]||{}).id||'';
+  if(!Array.isArray(c.tps)||!c.tps.length) c.tps=[{p:'',pct:100}];
+  const {cur}=calcCtx(), v=x=>esc(x??'');
+  el.innerHTML=`
+    <div class="page-head"><div><h1>Lot size</h1><p>How many lots to open so that a stopped-out trade costs exactly what you decided — on any pair, with up to four take profits.</p></div></div>
+    <div class="grid g-half" style="margin-bottom:14px">
+      <div class="panel"><div class="panel-head"><h3>The trade</h3></div><div class="stack" style="gap:13px">
+        <div class="field-row">
+          <div class="field"><label>Account</label><select data-chg="calcAcct"><option value="">Custom balance (USD)</option>${state.accounts.map(a=>`<option value="${a.id}" ${a.id===c.accountId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+          <div class="field"><label>Balance <em>(${esc(cur)})</em></label><input type="number" min="0" step="any" data-inp="calc" data-id="balance" value="${v(c.balance)}" placeholder="e.g. 5000"></div>
+        </div>
+        <div class="field"><label>Risk on this trade</label><div class="flow-add" style="align-items:center">
+          <div class="pills" style="flex:0 0 auto"><button class="pill ${c.mode==='pct'?'active':''}" data-act="calcMode" data-id="pct">% of balance</button><button class="pill ${c.mode==='amount'?'active':''}" data-act="calcMode" data-id="amount">Fixed amount</button></div>
+          <input type="number" min="0" step="any" data-inp="calc" data-id="${c.mode==='amount'?'amount':'pct'}" value="${v(c.mode==='amount'?c.amount:c.pct)}" placeholder="${c.mode==='amount'?'amount in '+esc(cur):'% per trade'}" aria-label="Risk ${c.mode==='amount'?'amount':'percent'}"></div></div>
+        <div class="field"><label>Instrument</label><div class="flow-add"><select data-chg="calcInst">${state.instruments.map(i=>`<option value="${i.id}" ${i.id===c.instId?'selected':''}>${esc(i.name)}</option>`).join('')}</select><button class="btn" data-act="instEdit" data-id="${c.instId}">Edit</button><button class="btn" data-act="instNew">New</button></div></div>
+        <div class="field-row">
+          <div class="field"><label>Entry price</label><input type="number" min="0" step="any" data-inp="calc" data-id="entry" value="${v(c.entry)}"></div>
+          <div class="field"><label>Stop loss</label><input type="number" min="0" step="any" data-inp="calc" data-id="sl" value="${v(c.sl)}"></div>
+        </div>
+        <div class="field"><label style="display:flex;justify-content:space-between;align-items:center"><span>Take profits <em>(optional)</em></span><button class="btn sm ghost" data-act="tpEven">Split evenly</button></label>
+          ${c.tps.map((t,i)=>`<div class="flow-add" style="margin-bottom:6px"><input type="number" min="0" step="any" data-inp="tp" data-id="${i}" data-f="p" value="${v(t.p)}" placeholder="TP${i+1} price" aria-label="Take profit ${i+1} price"><input type="number" min="0" max="100" step="any" data-inp="tp" data-id="${i}" data-f="pct" value="${v(t.pct)}" placeholder="% of position" aria-label="Take profit ${i+1} share" style="flex:0 1 120px"><span class="faint" style="align-self:center;font-size:12px">%</span><button class="btn" data-act="tpDel" data-id="${i}" aria-label="Remove take profit ${i+1}" ${c.tps.length===1?'disabled':''}>×</button></div>`).join('')}
+          ${c.tps.length<4?`<div><button class="btn sm" data-act="tpAdd">+ Add take profit</button></div>`:''}</div>
+      </div></div>
+      <div class="panel" id="calcOut"></div>
+    </div>
+    <div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>Same risk on every pair</h3><span class="hint">lots that lose the same amount at each pair's usual stop</span></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Instrument</th><th class="r">1 pip =</th><th class="r">Usual stop (pips)</th><th class="r">Lots for this risk</th><th></th></tr></thead><tbody>
+      ${state.instruments.map(i=>`<tr><td><div class="name">${esc(i.name)}</div><div class="subl">1 lot = ${fmtNum(i.contract,Number(i.contract)<1?4:0)} units · ${i.kind==='usd'?'quoted in USD':i.kind==='base'?'USD is the base':'other quote currency'}</div></td><td class="r">${trim(i.pip)}</td><td class="r"><input class="inp" type="number" min="0" step="any" style="width:90px;text-align:right;padding:6px 9px" data-inp="eqStop" data-id="${i.id}" value="${v(i.stop)}" aria-label="Usual stop in pips for ${esc(i.name)}"></td><td class="r" data-eq="${i.id}"></td><td class="r"><button class="btn sm ghost" data-act="instEdit" data-id="${i.id}">Edit</button></td></tr>`).join('')}
+      </tbody></table></div></div>
+    <p class="note"><b>Check each instrument once before trusting it.</b> Contract sizes differ between brokers and account types — a cent symbol is not the same as the standard one. Compare with MT5 (right-click the symbol → Specification → Contract size), or open <b>Edit</b> and work it out from one real closed trade. Spread, commission and slippage aren't included, so a stopped trade usually costs slightly more than shown.</p>`;
+  paintCalc();
+};
+const INP={};
+INP.calc=el=>{ state.calc[el.dataset.id]=el.value; store.save(); paintCalc(); };
+INP.tp=el=>{ const t=state.calc.tps[+el.dataset.id]; if(t){ t[el.dataset.f]=el.value; store.save(); paintCalc(); } };
+INP.eqStop=el=>{ const i=instById(el.dataset.id); if(i){ i.stop=el.value; store.save(); paintCalc(); } };
+CHG.calcAcct=el=>{ const a=acctById(el.value); state.calc.accountId=el.value; if(a){ const b=acctBalanceUsd(a)/fxOf(a); state.calc.balance=b>0?String(Math.round(b*100)/100):''; } store.save(); render(); };
+CHG.calcInst=el=>{ state.calc.instId=el.value; store.save(); render(); };
+ACT.calcMode=id=>{ state.calc.mode=id; store.save(); render(); };
+ACT.tpAdd=()=>{ const t=state.calc.tps; if(t.length<4){ t.push({p:'',pct:''}); ACT.tpEven(); } };
+ACT.tpDel=id=>{ const t=state.calc.tps; if(t.length>1){ t.splice(+id,1); ACT.tpEven(); } };
+ACT.tpEven=()=>{ const t=state.calc.tps, n=t.length, each=Math.floor(100/n); t.forEach((x,i)=>x.pct=i===n-1?100-each*(n-1):each); store.save(); render(); };
+ACT.instNew=()=>openInstModal();
+ACT.instEdit=id=>openInstModal(instById(id));
+function paintInstKind(){ const k=$('#inKind').value; $('#inRateWrap').style.display=k==='rate'?'':'none'; $('#inRefWrap').style.display=k==='base'?'':'none'; }
+function openInstModal(i){
+  $('#inTitle').textContent=i?'Edit '+i.name:'New instrument';
+  $('#inId').value=i?i.id:''; $('#inName').value=i?i.name:''; $('#inContract').value=i?i.contract:''; $('#inKind').value=i?i.kind:'usd'; $('#inRate').value=i?i.rate||'':''; $('#inRef').value=i?i.ref||'':'';
+  $('#inPip').value=i?i.pip:''; $('#inStep').value=i?i.step:0.01; $('#inMin').value=i?i.min:0.01;
+  ['calLots','calOpen','calClose','calProfit'].forEach(k=>$('#'+k).value=''); $('#calOut').textContent=''; $('#inCal').open=false;
+  const {a,cur}=calcCtx(); $('#calAcct').textContent=`Profit in ${cur}${a?' — the currency of '+a.name:''}. Ignore the plus or minus sign.`;
+  $('#inDelete').style.display=i?'':'none'; paintInstKind();
+  openOverlay('instOverlay'); setTimeout(()=>$('#inName').focus(),40);
+}
+$('#inKind').onchange=paintInstKind;
+$('#calGo').onclick=()=>{
+  const lots=parseFloat($('#calLots').value), o=parseFloat($('#calOpen').value), cl=parseFloat($('#calClose').value), p=Math.abs(parseFloat($('#calProfit').value)), k=$('#inKind').value;
+  if(!(lots>0)||!(o>0)||!(cl>0)||o===cl||!(p>0)) return toast('Fill in lots, open price, close price and profit from one closed trade','warn');
+  const q=k==='base'?1/o:k==='rate'?parseFloat($('#inRate').value):1;
+  if(!(q>0)) return toast('Set the quote-currency rate first','warn');
+  const contract=p/(lots*Math.abs(cl-o))*calcCtx().fx/q, nice=parseFloat(contract.toPrecision(4));
+  $('#inContract').value=nice; $('#calOut').textContent=`Contract size works out to ${nice} units per lot — filled in above. Save to keep it.`;
+};
+$('#inSave').onclick=()=>{
+  const id=$('#inId').value, name=$('#inName').value.trim(), num=s=>parseFloat($(s).value), kind=$('#inKind').value;
+  if(!name){ $('#inName').focus(); return toast('Give it the symbol name','warn'); }
+  if(!(num('#inContract')>0)){ $('#inContract').focus(); return toast('Enter the contract size (units in 1 lot)','warn'); }
+  if(kind==='rate'&&!(num('#inRate')>0)){ $('#inRate').focus(); return toast('Enter what 1 unit of the quote currency is worth in USD','warn'); }
+  const data={name,contract:num('#inContract'),kind,rate:$('#inRate').value,ref:$('#inRef').value,pip:num('#inPip')>0?num('#inPip'):0,step:num('#inStep')>0?num('#inStep'):0.01,min:num('#inMin')>0?num('#inMin'):0.01};
+  if(id) Object.assign(instById(id),data); else { const i={id:uid(),stop:20,...data}; state.instruments.push(i); state.calc.instId=i.id; }
+  store.save(); closeOverlay('instOverlay'); render(); toast(id?'Instrument updated':`Added ${name}`);
+};
+$('#inDelete').onclick=()=>{ const i=instById($('#inId').value); if(!i||!confirm(`Remove ${i.name} from your instrument list?`)) return; state.instruments=state.instruments.filter(x=>x.id!==i.id); store.save(); closeOverlay('instOverlay'); render(); toast(`Removed ${i.name}`,'del'); };
+
+/* ============================================================
    SETTINGS
    ============================================================ */
 function download(name,text){ const url=URL.createObjectURL(new Blob([text],{type:'application/json'})), a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
@@ -1384,12 +1570,14 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]'); if(b&&ACT[b.dataset.act]) ACT[b.dataset.act](b.dataset.id,b,e);
 });
 document.addEventListener('change',e=>{ const k=e.target.dataset&&e.target.dataset.chg; if(k&&CHG[k]) CHG[k](e.target); });
+document.addEventListener('input',e=>{ const k=e.target.dataset&&e.target.dataset.inp; if(k&&INP[k]) INP[k](e.target); });
 document.addEventListener('keydown',e=>{
   const open=$$('.overlay.show').filter(o=>o.id!=='importOverlay').pop(); if(!open) return;
   if(e.key==='Escape') return closeOverlay(open.id);
   if(e.key!=='Enter'||/^(TEXTAREA|BUTTON|SELECT)$/.test(e.target.tagName)) return;
   e.preventDefault();
   if(e.target.id==='flowAmount') return $('#flowAdd').click();
+  if(e.target.closest('#inCal')) return $('#calGo').click();
   const p=$('.modal-foot .btn.primary',open); if(p) p.click();
 });
 let rsz; window.addEventListener('resize',()=>{ clearTimeout(rsz); rsz=setTimeout(()=>{ if(!$('.overlay.show')&&curView!=='chart') render(); },180); });
