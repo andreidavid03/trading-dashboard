@@ -6,3 +6,6 @@ accounts.json
 robots-only.json
 robots-last-week.json
 trading-book-*.json
+
+# Old files kept from before the October 2026 reset (personal data + abandoned experiments)
+archive/

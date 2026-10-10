@@ -1,23 +1,23 @@
-# Trading Dashboard
+# Trading Book
 
-A private, offline P&L journal for tracking trading accounts and bots — a single HTML file, no install, no server, no account required. Your data is saved locally in your own browser and never leaves your machine.
+A private robot-testing lab and P&L journal — a single HTML file, no install, no account. Your data is saved in your own browser and never leaves your machine.
 
-## Features
+## What it does
 
-- **Dashboard** — net P&L with This week / Month / Year / All ranges, a cumulative equity curve, and per-account cards.
-- **Performance stats** — win rate, average win/loss week, current & longest streaks, max drawdown, and best week.
-- **Weekly calendar** — log profit or loss per account for each week; green/red rows with per-account breakdowns.
-- **Weekly notes & tags** — journal what happened each week and tag it (e.g. `#news`, `#disciplined`); shown on calendar rows and heatmap.
-- **Year heatmap** — a full-year grid of weeks colored green/red, with per-account filtering and hover details.
-- **Accounts & bots** — add accounts with a name, source/platform, starting balance, type, and color. Edit or delete anytime.
-- **Deposits & withdrawals** — track capital in/out per account so balance and return on capital stay accurate.
-- **Export / Import** — back up or move your data as a JSON file.
+- **Overview** — season net P&L, equity, return on deposits, winning weeks, profit factor, max drawdown, a cumulative equity curve, the robot pipeline and upcoming deposits. Everything counts from a season start date you set.
+- **Robots (the lab)** — every EA you're testing or running, staged as Backtesting → Forward test → Live → Retired. Import MT5 **Strategy Tester** or **Trade History** reports (HTML, even 150 MB+) and get per-run stats, a daily equity curve, monthly P&L, the inputs used, a side-by-side diff of inputs between runs, and plain-language red flags (stop-outs, deep drawdown, martingale-style sizing, small samples).
+- **Accounts** — broker accounts with currency (USD, cent/USC, EUR, GBP), deposits and withdrawals, status, and a per-account robot limit (default 2).
+- **Calendar** — one row per trading week; log each robot's result, add notes and tags, filter by account or robot.
+- **Combine** — given your equity and the largest drawdown you'd accept, shows which robots fit alone and in pairs, using the day-by-day results from the imported reports (combined drawdown, worst case, correlation). It is arithmetic on past results, not a forecast.
+- **Deposits** — plan future deposits per account; each posts itself on its date, with optional monthly repeat.
+- **Chart** — a live TradingView chart for manual trading (the only screen that needs internet).
+- **Settings** — season start, robots-per-account limit, backup and restore.
 
 ## Usage
 
-**Recommended (data saves reliably):** double-click `Open Trading Book.command`. It starts a tiny local web server and opens the dashboard in your browser. Keep the terminal window open while you use it.
+**Recommended (data saves reliably):** double-click `Open Trading Book.command`. It starts a tiny local web server and opens the app in your browser. Keep the terminal window open while you use it.
 
-**Quick look:** open `trading-dashboard.html` directly in your browser. Note that some browsers (Brave, Safari) block local saving on `file://` pages — if you see a warning banner, use the launcher instead.
+**Quick look:** open `trading-dashboard.html` directly. Some browsers (Brave, Safari) block saving on `file://` pages — if you see a warning banner, use the launcher instead.
 
 ## Files
 
