@@ -168,9 +168,6 @@
   .card-actions{display:flex;gap:7px;margin-top:auto;flex-wrap:wrap}
   .add-card{border:1.5px dashed var(--line);border-radius:var(--r);display:grid;place-items:center;min-height:150px;color:var(--txt-faint);cursor:pointer;font-weight:600;background:none;transition:.15s}
   .add-card:hover{border-color:var(--accent);color:var(--accent)}
-  .slots{display:inline-flex;gap:4px;align-items:center}
-  .slots i{width:16px;height:6px;border-radius:3px;background:var(--line)}
-  .slots i.on{background:var(--accent)}
   .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:14px}
   .step{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:12px 13px;cursor:pointer;text-align:left;color:inherit}
   .step:hover{border-color:var(--line)}
@@ -371,8 +368,8 @@
       <div class="field"><label>Status</label><select id="acStatus"><option value="running">Active — trading now</option><option value="waiting">Waiting — not funded / deployed</option><option value="paused">Paused</option></select></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Account currency</label><select id="acCur"><option value="USD">USD</option><option value="USC">USC — cent account</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select></div>
-      <div class="field"><label>1 unit = how many USD</label><input type="number" step="any" id="acFx"></div>
+      <div class="field"><label>Account currency</label><select id="acCur"><option value="EUR">EUR</option><option value="USD">USD</option><option value="USC">USC — cent account</option><option value="GBP">GBP</option></select></div>
+      <div class="field"><label>1 unit = how many euros</label><input type="number" step="any" id="acFx"></div>
     </div>
     <div class="field-row">
       <div class="field"><label>Whose money</label><select id="acKind"><option value="own">My own money</option><option value="funded">Funded by a prop firm (FTMO…)</option></select></div>
@@ -403,7 +400,7 @@
   <div class="modal-head"><div><h3 id="wkTitle">Week</h3><p id="wkSub">Enter each robot's result for the week</p></div><button class="x" data-close="weekOverlay" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="modal-body">
     <div id="wkRows" class="stack" style="gap:7px"></div>
-    <div class="wk-total"><span>Week total <span class="faint" style="font-weight:500">(real accounts, USD)</span></span><b id="wkTotal">$0.00</b></div>
+    <div class="wk-total"><span>Week total <span class="faint" style="font-weight:500">(real accounts, in euros)</span></span><b id="wkTotal">€0.00</b></div>
     <div class="field"><label>Notes <em>(optional)</em></label><textarea id="wkNote" placeholder="What happened this week? News, changes, mistakes…"></textarea></div>
     <div class="field"><label>Tags <em>(comma separated)</em></label><input id="wkTags" placeholder="e.g. NFP, changed lot size"></div>
     <div class="modal-foot"><button class="btn ghost" data-close="weekOverlay">Cancel</button><button class="btn primary" id="wkSave">Save week</button></div>
@@ -489,9 +486,11 @@ const dLong=s=>{const d=parseYmd(s);return d.getDate()+' '+MON[d.getMonth()]+' '
 function weekRange(wk){ const a=parseYmd(wk), b=addDays(a,6); return a.getMonth()===b.getMonth()? `${a.getDate()}–${b.getDate()} ${MON[b.getMonth()]}` : `${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]}`; }
 
 const fmtNum=(n,dp=2)=>Number(n).toLocaleString('en-US',{minimumFractionDigits:dp,maximumFractionDigits:dp});
-// money()/compact() print '$' unless a test run in another currency is being drawn (see curFn)
-let CUR='$';
-const runSym=run=>({EUR:'€',GBP:'£'})[run&&run.currency]||'$';
+// money()/compact() print euros unless a test run in another currency is being drawn (see curFn)
+// The whole app counts in euros. Accounts in another currency carry a rate (account.fx = euros per unit).
+const BASE='EUR', BASE_SYM='€';
+let CUR=BASE_SYM;
+const runSym=run=>({EUR:'€',GBP:'£',USD:'$',USC:'$'})[run&&run.currency]||BASE_SYM;
 const curFn=(sym,f)=>(...a)=>{ const p=CUR; CUR=sym; try{ return f(...a); } finally{ CUR=p; } };
 function money(n,dp){ n=Number(n)||0; const a=Math.abs(n); if(dp==null) dp=a>=100000?0:2; return (n<0?'−':'')+CUR+fmtNum(a,dp); }
 function signed(n,dp){ n=Number(n)||0; return (n>0?'+':'')+money(n,dp); }
@@ -501,7 +500,7 @@ const pctPlain=(n,dp=1)=>n==null||!isFinite(n)?'—':n.toFixed(dp)+'%';
 const cls=n=>n>0?'pos':n<0?'neg':'';
 const dash=(v,f)=>v==null||(typeof v==='number'&&!isFinite(v))?'—':f(v);
 const CUR_SYM={USD:'$',EUR:'€',GBP:'£'};
-function nativeMoney(a,v){ const c=(a&&a.currency)||'USD'; v=Number(v)||0; const s=v<0?'−':''; if(c==='USC') return s+fmtNum(Math.abs(v),0)+' USC'; return s+(CUR_SYM[c]||'')+fmtNum(Math.abs(v),2); }
+function nativeMoney(a,v){ const c=(a&&a.currency)||BASE; v=Number(v)||0; const s=v<0?'−':''; if(c==='USC') return s+fmtNum(Math.abs(v),0)+' USC'; return s+(CUR_SYM[c]||'')+fmtNum(Math.abs(v),2); }
 
 function toast(msg,type='ok'){ const t=document.createElement('div'); t.className='toast '+(type==='ok'?'':type); t.textContent=msg; $('#toasts').appendChild(t); setTimeout(()=>t.remove(),3200); }
 function openOverlay(id){ $('#'+id).classList.add('show'); }
@@ -519,13 +518,14 @@ const STAGE_LABEL=Object.fromEntries(STAGES);
 const AC_STATUS=['running','waiting','paused'], AC_LABEL={running:'Active',waiting:'Waiting',paused:'Paused'};
 const SRC_LABEL={tester:'Backtest',forward:'Forward test',history:'Live history'};
 
-function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',maxPerAccount:2,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}},
+function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',base:'EUR',usdRate:0.8945,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}},
   packsDone:[],instruments:defaultInstruments(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
 const store={
   ok:true, warned:false,
   load(){
     try{
       const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(!d) return blank();
+      this.legacyUsd=!(d.settings&&d.settings.base);   // saved before the app switched from dollars to euros
       const b=blank();
       return {...b,...d,settings:{...b.settings,...(d.settings||{})},lab:{...b.lab,...(d.lab||{})},calc:{...b.calc,...(d.calc||{})}};
     }catch(e){ this.ok=false; return blank(); }
@@ -556,6 +556,14 @@ function showStorageWarning(e){
 const acctById=id=>state.accounts.find(a=>a.id===id);
 const robotById=id=>state.robots.find(r=>r.id===id);
 const fxOf=a=>a&&Number(a.fx)>0?Number(a.fx):1;
+const usdRate=()=>Number(state.settings.usdRate)>0?Number(state.settings.usdRate):0.8945;   // euros for one dollar
+// One-time: data saved while the app counted in dollars. Rates become euros per unit; amounts are untouched.
+function migrateBase(){
+  const eur=state.accounts.find(a=>a.currency==='EUR'&&Number(a.fx)>0), usdPerEur=eur?Number(eur.fx):1.118, rate=Math.round(1/usdPerEur*10000)/10000;
+  state.accounts.forEach(a=>{ const c=a.currency||'USD'; a.currency=c; a.fx=c==='EUR'?1:c==='USD'?rate:c==='USC'?Math.round(rate*1e4)/1e6:Math.round(fxOf(a)/usdPerEur*10000)/10000; });
+  const eq=parseFloat(state.lab.equity); if(eq>0) state.lab.equity=String(Math.round(eq*rate));
+  state.settings.usdRate=rate; state.settings.base='EUR'; delete state.settings.maxPerAccount; store.save();
+}
 function keyAccount(k){ if(k.startsWith('acct:')) return acctById(k.slice(5)); const r=robotById(k); return r?acctById(r.accountId):null; }
 const isRealKey=k=>{ const a=keyAccount(k); return !(a&&a.demo); };
 // a funded (prop-firm) account: only your profit split counts as yours
@@ -588,13 +596,14 @@ const acctBalanceUsd=a=>a.funded?acctPnlUsd(a)-payoutsNative(a)*fxOf(a):netDepos
 // what the account itself holds, in its own currency (a payout of your share takes the matching gross profit out of a funded account)
 function acctHoldNative(a){ if(!a.funded) return netDepositedNative(a)+acctPnlNative(a); const sh=shareOf(a); return (Number(a.balance)||0)+acctPnlNative(a)-(sh>0?payoutsNative(a)/sh:0); }
 const isSlotStage=s=>s==='live'||s==='demo';
-const slotsUsed=(aid,except)=>state.robots.filter(r=>r.accountId===aid&&r.id!==except&&isSlotStage(r.stage)).length;
-const maxSlots=()=>Math.max(1,Number(state.settings.maxPerAccount)||2);
+const robotsOn=aid=>state.robots.filter(r=>r.accountId===aid&&isSlotStage(r.stage));
 const nextColor=list=>COLORS.find(c=>!list.some(x=>x.color===c))||COLORS[list.length%COLORS.length];
 
 /* ---------- test runs ---------- */
 const runsOf=rid=>state.runs.filter(x=>x.robotId===rid);
 const runK=run=>run.cent?0.01:1;
+// a test run's amounts in euros (dollar and cent tests go through the dollar rate)
+const runBase=run=>runK(run)*(/^US[DC]$/.test(run.currency||'')?usdRate():1);
 // true when the test ended with the account wiped: a broker stop-out, or 90%+ of the deposit gone
 const runRuined=run=>{ const s=run.stats||{}; return !!s.stopOut||(run.deposit>0&&s.net!=null&&s.net<=-0.9*run.deposit); };
 function runView(run){
@@ -901,8 +910,8 @@ RENDER.overview=function(){
     return `<tr class="click" data-act="openRobot" data-id="${r.id}"><td><div class="name">${dot(r.color)}${esc(r.name)}</div><div class="subl">${a?esc(a.name):'No account'}${a&&a.demo?' · demo':''}</div></td><td>${badge(r.stage,STAGE_LABEL[r.stage])}</td><td class="r">${rs.weeks}</td><td class="r ${cls(rs.net)}">${rs.weeks?signed(rs.net):'—'}</td><td class="r">${rs.weeks?Math.round(rs.wins/rs.weeks*100)+'%':'—'}</td><td class="r ${cls(last)}">${dash(last,signed)}</td><td class="r">${spark(rs.curve)}</td></tr>`;
   }).join('');
   const acctRows=state.accounts.map(a=>{
-    const p=acctPnlUsd(a), nd=netDepositedNative(a)*fxOf(a), used=slotsUsed(a.id), mx=maxSlots();
-    return `<tr class="click" data-act="go" data-id="accounts"><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${esc(a.broker||'—')}${a.demo?' · demo':''}</div></td><td>${badge(a.status||'running',AC_LABEL[a.status||'running'])}</td><td><span class="slots" title="${used} of ${mx} robot slots used">${Array.from({length:mx},(_,i)=>`<i class="${i<used?'on':''}"></i>`).join('')}</span></td><td class="r">${a.funded?'<span class="faint">funded</span>':money(acctBalanceUsd(a))}</td><td class="r ${cls(p)}">${p?signed(p):'—'}</td><td class="r">${nd>0&&p?pct(p/nd*100):'—'}</td></tr>`;
+    const p=acctPnlUsd(a), nd=netDepositedNative(a)*fxOf(a), used=robotsOn(a.id).length;
+    return `<tr class="click" data-act="go" data-id="accounts"><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${esc(a.broker||'—')}${a.demo?' · demo':''}</div></td><td>${badge(a.status||'running',AC_LABEL[a.status||'running'])}</td><td class="r">${used||'—'}</td><td class="r">${a.funded?'<span class="faint">funded</span>':money(acctBalanceUsd(a))}</td><td class="r ${cls(p)}">${p?signed(p):'—'}</td><td class="r">${!a.funded&&nd>0&&p?pct(p/nd*100):'—'}</td></tr>`;
   }).join('');
   const pipe=STAGES.map(([k,l])=>{ const rs=state.robots.filter(r=>r.stage===k); return `<div class="row"><span class="l">${badge(k,l)}</span><span class="r">${rs.length}</span></div>`; }).join('');
   const pend=state.plans.filter(p=>!p.appliedFlowId).sort((a,b)=>a.date<b.date?-1:1).slice(0,4);
@@ -926,7 +935,7 @@ RENDER.overview=function(){
       ${kpi('Best / worst week',st.weeks?`<span class="${cls(st.best)}">${signed(st.best,0)}</span> <span class="faint">/</span> <span class="${cls(st.worst)}">${signed(st.worst,0)}</span>`:'—','')}
     </div>
     <div class="grid g-2" style="margin-bottom:14px">
-      <div class="panel"><div class="panel-head"><h3>Cumulative P&amp;L</h3><span class="hint">by week, USD</span></div><div id="ovCurve"></div></div>
+      <div class="panel"><div class="panel-head"><h3>Cumulative P&amp;L</h3><span class="hint">by week, in euros</span></div><div id="ovCurve"></div></div>
       <div class="stack">
         <div class="panel"><div class="panel-head"><h3>Robot pipeline</h3><button class="btn sm ghost" data-act="go" data-id="robots">Open lab</button></div><div class="rows">${pipe}</div></div>
         <div class="panel"><div class="panel-head"><h3>Next deposits</h3><button class="btn sm ghost" data-act="go" data-id="deposits">Plan</button></div><div class="rows">${pendHtml}</div></div>
@@ -935,8 +944,8 @@ RENDER.overview=function(){
     <div class="grid g-wide">
       <div class="panel"><div class="panel-head"><h3>Running robots</h3><span class="hint">forward test + live</span></div>
         ${active.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th>Stage</th><th class="r">Weeks</th><th class="r">Net</th><th class="r">Win</th><th class="r">Last week</th><th class="r">Trend</th></tr></thead><tbody>${robotRows}</tbody></table></div>`:'<p class="faint" style="font-size:13px">No robots running yet. Move one to Forward test or Live in the Robots lab.</p>'}</div>
-      <div class="panel"><div class="panel-head"><h3>Accounts</h3><span class="hint">max ${maxSlots()} robots each</span></div>
-        ${state.accounts.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Account</th><th>Status</th><th>Slots</th><th class="r">Balance</th><th class="r">P&amp;L</th><th class="r">Return</th></tr></thead><tbody>${acctRows}</tbody></table></div>`:'<p class="faint" style="font-size:13px">No accounts yet.</p>'}</div>
+      <div class="panel"><div class="panel-head"><h3>Accounts</h3><span class="hint">balance and result so far</span></div>
+        ${state.accounts.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Account</th><th>Status</th><th class="r">Robots running</th><th class="r">Balance</th><th class="r">P&amp;L</th><th class="r">Return</th></tr></thead><tbody>${acctRows}</tbody></table></div>`:'<p class="faint" style="font-size:13px">No accounts yet.</p>'}</div>
     </div>`;
   const host=$('#ovCurve');
   if(st.weeks) lineChart(host,ser.map(p=>p.wk),[{name:'Cumulative P&L',color:'var(--accent)',ys:st.curve}],{h:250,label:'Cumulative profit and loss by week',tfmt:wk=>'Week of '+weekRange(wk),extra:i=>`<div class="row"><span>That week</span><b class="${cls(ser[i].v)}">${dash(ser[i].v,signed)}</b></div>`});
@@ -1020,16 +1029,15 @@ function renderRobotDetail(r){
       ${diff}
       ${run.inputs&&run.inputs.length?`<div class="panel"><div class="panel-head"><h3>Inputs used</h3><span class="hint">${run.inputs.length} settings from the report</span></div><div class="kv">${run.inputs.map(i=>`<div><span title="${esc(i[0])}">${esc(i[0])}</span><b>${esc(i[1])}</b></div>`).join('')}</div></div>`:''}`;
   }
-  CUR='$';
+  CUR=BASE_SYM;
   const liveSer=seriesFor(k=>k===r.id), ls=statsFrom(liveSer);
-  const liveHtml=ls.weeks?`<div class="panel"><div class="panel-head"><h3>${r.stage==='demo'?'Forward-test results':'Live results'}</h3><span class="hint">from your weekly journal, USD</span></div>
+  const liveHtml=ls.weeks?`<div class="panel"><div class="panel-head"><h3>${r.stage==='demo'?'Forward-test results':'Live results'}</h3><span class="hint">from your weekly journal, in euros</span></div>
       <div class="kpis" style="margin-bottom:12px">${kpi('Net',signed(ls.net),ls.weeks+' week'+(ls.weeks===1?'':'s'),cls(ls.net))}${kpi('Winning weeks',`${ls.wins} / ${ls.weeks}`)}${kpi('Best week',signed(ls.best),'',cls(ls.best))}${kpi('Worst week',signed(ls.worst),'',cls(ls.worst))}${kpi('Max drawdown',ls.dd?money(-ls.dd):'—')}</div>
       <div id="liveBars"></div></div>`:'';
-  const used=a?slotsUsed(a.id):0;
   el.innerHTML=`
     <button class="back" data-act="backRobots">${ico('back').replace('<svg','<svg width="15" height="15"')}All robots</button>
     <div class="page-head"><div><h1 style="display:flex;align-items:center;gap:11px">${dot(r.color)}${esc(r.name)}</h1>
-      <div class="chips" style="margin-top:9px">${badge(r.stage,STAGE_LABEL[r.stage])}${a?`<span class="chip">${esc(a.name)} · ${used}/${maxSlots()} slots</span>`:'<span class="chip">Not on an account</span>'}${[r.symbol,r.timeframe,r.strategy,r.platform,r.vendor,r.magic?'magic '+r.magic:'',r.setFile].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>
+      <div class="chips" style="margin-top:9px">${badge(r.stage,STAGE_LABEL[r.stage])}${a?`<span class="chip">${esc(a.name)}</span>`:'<span class="chip">Not on an account</span>'}${[r.symbol,r.timeframe,r.strategy,r.platform,r.vendor,r.magic?'magic '+r.magic:'',r.setFile].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>
       <div class="actions"><button class="btn primary" data-act="importRun">${ico('up')}Import MT5 report</button><button class="btn" data-act="addRun">Add by hand</button><button class="btn" data-act="editRobot" data-id="${r.id}">Edit</button><button class="btn danger" data-act="delRobot" data-id="${r.id}">Delete</button></div></div>
     <div class="stack">
       ${r.note?`<p class="note">${esc(r.note)}</p>`:''}
@@ -1066,12 +1074,11 @@ function paintSwatches(host,cur,set){ host.innerHTML=COLORS.map(c=>`<button type
 function openRobotModal(r){
   $('#rbTitle').textContent=r?'Edit robot':'New robot';
   $('#rbStage').innerHTML=STAGES.map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
-  $('#rbAccount').innerHTML='<option value="">— none yet —</option>'+state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} (${slotsUsed(a.id,r&&r.id)}/${maxSlots()} used)</option>`).join('');
+  $('#rbAccount').innerHTML='<option value="">— none yet —</option>'+state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
   $('#rbId').value=r?r.id:''; $('#rbName').value=r?r.name:''; $('#rbStage').value=r?r.stage:'backtest'; $('#rbAccount').value=r&&acctById(r.accountId)?r.accountId:'';
   $('#rbSymbol').value=r?r.symbol||'':''; $('#rbTf').value=r?r.timeframe||'':''; $('#rbPlatform').value=r?r.platform||'MT5':'MT5';
   $('#rbStrategy').value=r?r.strategy||'':''; $('#rbVendor').value=r?r.vendor||'':''; $('#rbMagic').value=r?r.magic||'':''; $('#rbSet').value=r?r.setFile||'':''; $('#rbNote').value=r?r.note||'':''; $('#rbStop').value=r&&r.stopAt?r.stopAt:'';
   rbColor=r?r.color:nextColor(state.robots); paintSwatches($('#rbColors'),rbColor,c=>rbColor=c);
-  $('#rbAcctHint').textContent=`(max ${maxSlots()} robots each)`;
   openOverlay('robotOverlay'); setTimeout(()=>$('#rbName').focus(),40);
 }
 $('#rbSave').onclick=()=>{
@@ -1079,7 +1086,6 @@ $('#rbSave').onclick=()=>{
   if(!name){ $('#rbName').focus(); return toast('Give the robot a name','warn'); }
   if(isSlotStage(stage)){
     if(!accountId) return toast('Pick the account it runs on — forward-test and live robots need one','warn');
-    if(slotsUsed(accountId,id)>=maxSlots()) return toast(`${acctById(accountId).name} already runs ${maxSlots()} robots — that's your limit per account. Move or retire one first.`,'warn');
   }
   const data={name,stage,accountId,symbol:$('#rbSymbol').value.trim(),timeframe:$('#rbTf').value.trim(),platform:$('#rbPlatform').value,strategy:$('#rbStrategy').value,vendor:$('#rbVendor').value.trim(),magic:$('#rbMagic').value.trim(),setFile:$('#rbSet').value.trim(),note:$('#rbNote').value.trim(),stopAt:parseFloat($('#rbStop').value)||'',color:rbColor};
   if(id) Object.assign(robotById(id),data); else { const r={id:uid(),addedAt:todayYmd(),...data}; state.robots.push(r); curRobot=r.id; curView='robots'; }
@@ -1108,7 +1114,7 @@ function mergePack(pack,dry){
       state.plans=state.plans.filter(p=>!(p.accountId===old.id&&!p.appliedFlowId)); Object.assign(old,info); made[key]=old.id; return;
     }
     d.na++; if(dry){ made[key]='new'; return; }
-    const a={id:uid(),broker:'',status:'waiting',currency:'USD',fx:1,balance:0,demo:false,funded:false,split:80,floor:'',flows:[],...info,color:nextColor(state.accounts)};
+    const a={id:uid(),broker:'',status:'waiting',currency:BASE,fx:1,balance:0,demo:false,funded:false,split:80,floor:'',flows:[],...info,color:nextColor(state.accounts)};
     state.accounts.push(a); made[key]=a.id;
   });
   (pack.plans||[]).forEach(pp=>{ const id=made[String(pp.account||'').trim().toLowerCase()]; if(!id) return;   // only for accounts this pack creates
@@ -1201,10 +1207,10 @@ $('#runSave').onclick=()=>{
    ACCOUNTS
    ============================================================ */
 RENDER.accounts=function(){
-  const el=$('#accounts'), mx=maxSlots();
+  const el=$('#accounts');
   const cards=state.accounts.map(a=>{
     const st=a.status||'running', p=acctPnlUsd(a), gross=acctPnlNative(a), nd=netDepositedNative(a), ndU=nd*fxOf(a), bal=acctBalanceUsd(a), rs=state.robots.filter(r=>r.accountId===a.id&&isSlotStage(r.stage));
-    const usd=(a.currency||'USD')==='USD';
+    const usd=(a.currency||'USD')===BASE;
     return `<div class="card">
       <div class="card-top"><div style="min-width:0"><div class="card-title">${dot(a.color)}<span class="t">${esc(a.name)}</span></div><div class="card-sub">${esc(a.broker||'No broker set')} · ${esc(a.currency||'USD')}${a.funded?' · funded':''}${a.demo?' · demo':''}</div></div>${badge(st,AC_LABEL[st])}</div>
       <div><div class="faint" style="font-size:11.5px;font-weight:600">${a.funded?'Your unpaid share':'Balance'}</div><div style="font-size:26px;font-weight:720;letter-spacing:-.02em">${money(bal)}</div></div>
@@ -1217,12 +1223,12 @@ RENDER.accounts=function(){
         <div class="row"><span class="l">Net deposited</span><span class="r">${money(ndU)}${usd?'':` <span class="faint">(${nativeMoney(a,nd)})</span>`}</span></div>
         <div class="row"><span class="l">Return on deposits</span><span class="r ${cls(p)}">${ndU>0&&p?pct(p/ndU*100):'—'}</span></div>`}
         ${Number(a.floor)>0?`<div class="row"><span class="l">Stop line</span><span class="r ${acctHoldNative(a)<Number(a.floor)?'neg':''}">${nativeMoney(a,a.floor)}</span></div>`:''}
-        <div class="row"><span class="l">Robots <span class="slots" style="margin-left:6px">${Array.from({length:mx},(_,i)=>`<i class="${i<rs.length?'on':''}"></i>`).join('')}</span></span><span class="r">${rs.length?rs.map(r=>esc(r.name)).join(', '):`${mx} free slot${mx===1?'':'s'}`}</span></div>
+        <div class="row"><span class="l">Robots running</span><span class="r">${rs.length?rs.map(r=>esc(r.name)).join(', '):'none yet'}</span></div>
       </div>
       <div class="card-actions"><button class="btn sm" data-act="cycleAcct" data-id="${a.id}">Set status</button><button class="btn sm" data-act="editAcct" data-id="${a.id}">Edit</button><button class="btn sm danger" data-act="delAcct" data-id="${a.id}">Delete</button></div>
     </div>`; }).join('');
   el.innerHTML=`
-    <div class="page-head"><div><h1>Accounts</h1><p>Your broker accounts. Each one runs at most ${mx} robot${mx===1?'':'s'} — the limit you set for yourself.</p></div>
+    <div class="page-head"><div><h1>Accounts</h1><p>Your accounts, with the robots running on each. Everything is totalled in euros.</p></div>
       <div class="actions"><button class="btn primary" data-act="newAcct">${ico('plus')}Add account</button></div></div>
     <div class="cards">${cards}<button class="add-card" data-act="newAcct">+ Add account</button></div>`;
 };
@@ -1241,7 +1247,7 @@ let acColor=COLORS[0], modalFlows=[];
 function openAcctModal(a){
   $('#acTitle').textContent=a?'Edit account':'New account';
   $('#acId').value=a?a.id:''; $('#acName').value=a?a.name:''; $('#acBroker').value=a?a.broker||'':''; $('#acStatus').value=a?a.status||'running':'waiting';
-  $('#acCur').value=a?a.currency||'USD':'USD'; $('#acFx').value=a?fxOf(a):1; $('#acBalance').value=a&&a.balance?a.balance:''; $('#acDemo').checked=!!(a&&a.demo);
+  $('#acCur').value=a?a.currency||'USD':BASE; $('#acFx').value=a?fxOf(a):1; $('#acBalance').value=a&&a.balance?a.balance:''; $('#acDemo').checked=!!(a&&a.demo);
   $('#acKind').value=a&&a.funded?'funded':'own'; $('#acSplit').value=a&&a.split!=null&&a.split!==''?a.split:80; $('#acFloor').value=a&&a.floor?a.floor:''; paintAcKind();
   acColor=a?a.color:nextColor(state.accounts); paintSwatches($('#acColors'),acColor,c=>acColor=c);
   modalFlows=a?(a.flows||[]).map(f=>({...f})):[]; $('#flowAmount').value=''; $('#flowType').value='deposit'; $('#flowDate').value=todayYmd(); paintFlows();
@@ -1249,7 +1255,7 @@ function openAcctModal(a){
 }
 function paintAcKind(){ const f=$('#acKind').value==='funded'; $('#acSplitWrap').style.visibility=f?'visible':'hidden'; $('#acBalLabel').textContent=f?'Funded account size':'Starting balance'; $('#flowsLbl').textContent=f?'Payouts received (add as withdrawals)':'Deposits & withdrawals'; if(f&&!modalFlows.length) $('#flowType').value='withdrawal'; }
 $('#acKind').onchange=paintAcKind;
-$('#acCur').onchange=()=>{ const c=$('#acCur').value; if(c==='USD') $('#acFx').value=1; else if(c==='USC') $('#acFx').value=0.01; else { $('#acFx').value=''; $('#acFx').focus(); toast(`Enter today's ${c}→USD rate so totals add up`,'warn'); } paintFlows(); };
+$('#acCur').onchange=()=>{ const c=$('#acCur').value; if(c==='EUR') $('#acFx').value=1; else if(c==='USD') $('#acFx').value=usdRate(); else if(c==='USC') $('#acFx').value=Math.round(usdRate()*100)/10000; else { $('#acFx').value=''; $('#acFx').focus(); toast(`Enter today's ${c}→EUR rate so totals add up`,'warn'); } paintFlows(); };
 function paintFlows(){
   const cur={currency:$('#acCur').value};
   $('#flowsList').innerHTML=modalFlows.map((f,i)=>({f,i})).sort((a,b)=>a.f.date<b.f.date?1:-1).map(({f,i})=>{ const w=f.type==='withdrawal'; return `<div class="flow-item"><b class="${w?'':'pos'}">${w?'−':'+'}${nativeMoney(cur,Math.abs(f.amount))}</b><span class="dim">${w?'Withdrawal':'Deposit'}</span><span class="fd">${f.date?dLong(f.date):''}</span><button type="button" data-i="${i}" aria-label="Remove">×</button></div>`; }).join('');
@@ -1262,7 +1268,7 @@ $('#flowAdd').onclick=()=>{ if(!takePendingFlow()){ $('#flowAmount').focus(); re
 $('#acSave').onclick=()=>{
   const name=$('#acName').value.trim(), id=$('#acId').value, fx=parseFloat($('#acFx').value);
   if(!name){ $('#acName').focus(); return toast('Give the account a name','warn'); }
-  if(!(fx>0)){ $('#acFx').focus(); return toast('Enter how many USD one unit of this currency is worth','warn'); }
+  if(!(fx>0)){ $('#acFx').focus(); return toast('Enter how many euros one unit of this currency is worth','warn'); }
   takePendingFlow();   // an amount typed but not yet added still counts
   const data={name,broker:$('#acBroker').value.trim(),status:$('#acStatus').value,currency:$('#acCur').value,fx,balance:parseFloat($('#acBalance').value)||0,demo:$('#acDemo').checked,funded:$('#acKind').value==='funded',split:(v=>isFinite(v)?v:80)(parseFloat($('#acSplit').value)),floor:parseFloat($('#acFloor').value)||'',color:acColor,flows:modalFlows.map(f=>({...f}))};
   if(id) Object.assign(acctById(id),data); else state.accounts.push({id:uid(),...data});
@@ -1306,7 +1312,7 @@ ACT.openWeek=id=>openWeek(id);
 function openWeek(wk){
   curWeek=wk; const e=state.entries[wk]||{}, note=state.notes[wk]||{};
   $('#wkTitle').textContent=`Week of ${weekRange(wk)} ${addDays(parseYmd(wk),6).getFullYear()}`;
-  const row=(key,label,color,a)=>`<div class="wk-row"><div class="n">${dot(color)}${esc(label)}</div><input type="number" step="any" data-key="${key}" value="${e[key]??''}" placeholder="0.00" aria-label="${esc(label)} P&L"><span class="cur">${esc(a&&a.currency||'USD')}</span></div>`;
+  const row=(key,label,color,a)=>`<div class="wk-row"><div class="n">${dot(color)}${esc(label)}</div><input type="number" step="any" data-key="${key}" value="${e[key]??''}" placeholder="0.00" aria-label="${esc(label)} P&L"><span class="cur">${esc(a&&a.currency||BASE)}</span></div>`;
   let html='';
   state.accounts.forEach(a=>{
     const rs=state.robots.filter(r=>r.accountId===a.id&&(isSlotStage(r.stage)||e[r.id]!=null));
@@ -1336,7 +1342,7 @@ let labSel=null;
 const labRuns=r=>runsOf(r.id).filter(x=>x.daily&&x.daily.length>1&&x.stats);
 function labPick(r){ const runs=labRuns(r), L=state.lab; let p=L.picks[r.id]; if(!p) p=L.picks[r.id]={run:'',scale:1,on:true}; if(!runs.some(x=>x.id===p.run)) p.run=runs[runs.length-1].id; if(!(Number(p.scale)>0)) p.scale=1; return p; }
 function labSolo(r){
-  const p=labPick(r), run=state.runs.find(x=>x.id===p.run), s=run.stats, f=runK(run)*p.scale;
+  const p=labPick(r), run=state.runs.find(x=>x.id===p.run), s=run.stats, f=runBase(run)*p.scale;
   const closed=(s.ddAbs||0)*f, eq=s.eqDdAbs!=null?s.eqDdAbs*f:null;
   return {r,run,scale:p.scale,net:(s.net||0)*f,closed,eq,worst:Math.max(closed,eq||0),stop:runRuined(run),dep:(run.deposit||0)*f,
     daily:run.daily.map(d=>[d[0],d[1]*f]),from:run.daily[0][0],to:run.daily[run.daily.length-1][0]};
@@ -1361,7 +1367,7 @@ RENDER.lab=function(){
   const candRows=solos.map(s=>{ const p=labPick(s.r); return `<tr>
       <td><label class="check" style="color:var(--txt)"><input type="checkbox" data-chg="labOn" data-id="${s.r.id}" ${p.on?'checked':''}>${dot(s.r.color)}<b style="font-weight:640">${esc(s.r.name)}</b></label></td>
       <td><select class="inp" style="padding:6px 9px" data-chg="labRun" data-id="${s.r.id}" aria-label="Test run for ${esc(s.r.name)}">${labRuns(s.r).map(x=>`<option value="${x.id}" ${x.id===p.run?'selected':''}>${esc(x.label)}</option>`).join('')}</select></td>
-      <td class="r">${money((s.run.deposit||0)*runK(s.run))}</td>
+      <td class="r">${money((s.run.deposit||0)*runBase(s.run))}</td>
       <td class="r"><input class="inp" style="width:84px;text-align:right;padding:6px 9px" type="number" min="0" step="any" value="${p.scale}" data-chg="labScale" data-id="${s.r.id}" aria-label="Lot scale for ${esc(s.r.name)}"></td>
       <td class="r ${cls(s.net)}">${signed(s.net)}</td></tr>`; }).join('');
   let results='';
@@ -1380,15 +1386,15 @@ RENDER.lab=function(){
         ${on.length?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th class="r">Net in test</th><th class="r">Return on your equity</th><th class="r">Closed DD</th><th class="r">Equity DD</th><th class="r">Worst DD vs equity</th><th class="r">Net ÷ DD</th><th>Result</th></tr></thead><tbody>${soloRows}</tbody></table></div>`:'<p class="faint">Tick at least one robot above.</p>'}</div>
       ${on.length>1?`<div class="panel"><div class="panel-head"><h3>Pairs on one account</h3><span class="hint">sorted by what fits, then net ÷ worst-case drawdown</span></div>
         <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Pair</th><th class="r">Combined net</th><th class="r">Correlation</th><th class="r">Combined closed DD</th><th class="r">Worst case</th><th class="r">Worst case vs equity</th><th>Result</th></tr></thead><tbody>${pairRows}</tbody></table></div></div>
-        ${labSel?`<div class="panel"><div class="panel-head"><h3>Selected pair, day by day</h3><span class="hint">cumulative closed-trade P&amp;L over the shared period, USD</span></div><div id="labChart"></div></div>`:''}`
+        ${labSel?`<div class="panel"><div class="panel-head"><h3>Selected pair, day by day</h3><span class="hint">cumulative closed-trade P&amp;L over the shared period, in euros</span></div><div id="labChart"></div></div>`:''}`
         :`<p class="note">Add a second robot with an imported report to compare pairs.</p>`}
-      ${on.some(s=>runSym(s.run)!=='$')?`<p class="note"><b>Mixed currencies.</b> Some of these tests ran on euro or pound accounts. Their amounts are used as they are, not converted to dollars, so compare them with that in mind.</p>`:''}
+      ${on.some(s=>/^US[DC]$/.test(s.run.currency||''))?`<p class="note"><b>Dollar tests are shown in euros</b>, converted at 1 USD = €${usdRate()} (change it in Settings).</p>`:''}
       <div class="note"><b>How to read this.</b> <b>Closed DD</b> is the deepest peak-to-trough drop in closed-trade results. <b>Equity DD</b> also counts open losing positions — for grid and martingale robots it is the number that matters, and it is only known per robot. <b>Worst case</b> for a pair assumes both robots hit their deepest equity drawdown at the same moment. <b>Fits</b> = worst case inside your limit; <b>Tight</b> = only the closed drawdown is inside it; <b>Over</b> = neither.<br><br>
         <b>Lot scale</b> multiplies a test's results (×2 = double the lot size). That is only accurate for fixed-lot robots — martingale and compounding systems do not scale in a straight line. Correlation near +1 means the two lose on the same days; near 0 they are independent. All of this describes the tested period; it is arithmetic on past results, not a forecast or a recommendation.</div>`;
   }
   el.innerHTML=head+`<div class="stack">
     <div class="panel"><div class="panel-head"><h3>Your account</h3><div class="actions"><button class="btn sm" data-act="labFit">Scale each test to my equity</button><button class="btn sm ghost" data-act="labReset">Reset to ×1</button></div></div>
-      <div class="field-row" style="max-width:520px;margin-bottom:14px"><div class="field"><label>Equity on the account (USD)</label><input type="number" min="0" step="any" value="${esc(L.equity)}" data-chg="labEquity" placeholder="e.g. 2000"></div><div class="field"><label>Largest drawdown I'd accept (%)</label><input type="number" min="1" max="100" step="any" value="${esc(L.limit)}" data-chg="labLimit"></div></div>
+      <div class="field-row" style="max-width:520px;margin-bottom:14px"><div class="field"><label>Equity on the account (EUR)</label><input type="number" min="0" step="any" value="${esc(L.equity)}" data-chg="labEquity" placeholder="e.g. 2000"></div><div class="field"><label>Largest drawdown I'd accept (%)</label><input type="number" min="1" max="100" step="any" value="${esc(L.limit)}" data-chg="labLimit"></div></div>
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th>Test run to use</th><th class="r">Deposit in test</th><th class="r">Lot scale ×</th><th class="r">Net at this scale</th></tr></thead><tbody>${candRows}</tbody></table></div></div>
     ${results}</div>`;
   const host=$('#labChart');
@@ -1396,7 +1402,7 @@ RENDER.lab=function(){
     lineChart(host,p.xs,[{name:'Both together',color:'var(--txt)',ys:p.yc,emph:true},{name:sa.r.name,color:sa.r.color,ys:p.ya,thin:true},{name:sb.r.name,color:sb.r.color,ys:p.yb,thin:true}],{h:270,label:'Cumulative profit and loss of the selected pair'}); } }
 };
 ACT.labPair=id=>{ labSel=id; render(); };
-ACT.labFit=()=>{ const eq=parseFloat(state.lab.equity); if(!(eq>0)) return toast('Enter your equity first','warn'); state.robots.forEach(r=>{ if(!labRuns(r).length) return; const p=labPick(r), run=state.runs.find(x=>x.id===p.run), dep=(run.deposit||0)*runK(run); if(dep>0) p.scale=Math.round(eq/dep*1000)/1000; }); store.save(); render(); toast('Scaled each test to your equity'); };
+ACT.labFit=()=>{ const eq=parseFloat(state.lab.equity); if(!(eq>0)) return toast('Enter your equity first','warn'); state.robots.forEach(r=>{ if(!labRuns(r).length) return; const p=labPick(r), run=state.runs.find(x=>x.id===p.run), dep=(run.deposit||0)*runBase(run); if(dep>0) p.scale=Math.round(eq/dep*1000)/1000; }); store.save(); render(); toast('Scaled each test to your equity'); };
 ACT.labReset=()=>{ Object.values(state.lab.picks).forEach(p=>p.scale=1); store.save(); render(); };
 CHG.labEquity=el=>{ state.lab.equity=el.value; store.save(); render(); };
 CHG.labLimit=el=>{ state.lab.limit=el.value; store.save(); render(); };
@@ -1419,7 +1425,7 @@ function defaultRules(){
     R('Yuvi','Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.'),
     R('Yuvi','Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.'),
     R('Gold robot accounts','Fixed lot 0.01 per robot. Every risk-percent or auto-lot setting is off; the lot does not grow with the balance.'),
-    R('Gold robot accounts','Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.'),
+    R('Gold robot accounts','Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.'),
     R('Gold robot accounts','Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).'),
     R('Gold robot accounts','Four-week check: a scalper earning less than half its tested average per trade gets switched off.'),
     R('Gold robot accounts','Profits stay in as a cushion for the first three months. No withdrawals and no lot increase until then.'),
@@ -1429,14 +1435,29 @@ function defaultRules(){
     R('FTMO funded account','Size every trade on the Lot size page, at a risk per trade decided in advance.'),
     R('FTMO funded account','Stop trading for the day at half the daily loss limit.'),
     R('FTMO funded account','Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.'),
+    ...monthlyRules(),
     R('All accounts','Changes only at the weekend, one at a time, with a note in that week\'s log.'),
     R('All accounts','Log every week in the Calendar on Sunday.'),
     R('All accounts','No money beyond the €2,000, and no moving money between accounts to rescue one, until the three-month review.')
   ];
 }
+function monthlyRules(){ const R=text=>({id:uid(),group:'Monthly review',text}); return [
+  R('First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.'),
+  R('Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.'),
+  R('Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.'),
+  R('Put both reports in the reports folder and ask Claude for the detailed check before changing any setting.')
+]; }
+// one-time touch-ups to rules saved by an earlier version: only untouched default wording is changed
+function migrateRules(){
+  if(!Array.isArray(state.rules)||state.settings.rulesRev>=2) return;
+  const old='Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.';
+  state.rules.forEach(r=>{ if(r.text===old) r.text='Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.'; });
+  if(!state.rules.some(r=>r.group==='Monthly review')){ const i=state.rules.findIndex(r=>r.group==='All accounts'), add=monthlyRules(); if(i<0) state.rules.push(...add); else state.rules.splice(i,0,...add); }
+  state.settings.rulesRev=2; store.save();
+}
 function robotPnlNative(id){ let t=0, n=0; for(const wk in state.entries){ const v=state.entries[wk][id]; if(v!=null){ t+=Number(v)||0; n++; } } return {t,n}; }
 RENDER.rules=function(){
-  if(!Array.isArray(state.rules)) state.rules=defaultRules();
+  if(!Array.isArray(state.rules)){ state.rules=defaultRules(); state.settings.rulesRev=2; }
   const el=$('#rules');
   const acRows=state.accounts.filter(a=>Number(a.floor)>0).map(a=>{
     const hold=acctHoldNative(a), room=hold-Number(a.floor), k=room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
@@ -1520,7 +1541,7 @@ function openPlanModal(p){
   $('#plRepeat').checked=!!(p&&p.repeat); $('#plNote').value=p?p.note||'':''; paintPlanCur();
   openOverlay('planOverlay'); setTimeout(()=>$('#plAmount').focus(),40);
 }
-function paintPlanCur(){ const a=acctById($('#plAccount').value); $('#plCur').textContent=a?`(${a.currency||'USD'})`:''; }
+function paintPlanCur(){ const a=acctById($('#plAccount').value); $('#plCur').textContent=a?`(${a.currency||BASE})`:''; }
 $('#plAccount').onchange=paintPlanCur;
 $('#plSave').onclick=()=>{
   const amount=parseFloat($('#plAmount').value), date=$('#plDate').value, id=$('#plId').value;
@@ -1566,7 +1587,7 @@ function defaultInstruments(){
 }
 const instById=id=>state.instruments.find(i=>i.id===id);
 function calcCtx(){
-  const c=state.calc, a=acctById(c.accountId), fx=a?fxOf(a):1, cur=a?a.currency||'USD':'USD', bal=parseFloat(c.balance);
+  const c=state.calc, a=acctById(c.accountId), fx=(a?fxOf(a):1)/usdRate(), cur=a?a.currency||'USD':BASE, bal=parseFloat(c.balance);   // fx here = dollars per account unit
   return {a,fx,cur,bal,risk:c.mode==='amount'?parseFloat(c.amount):bal*parseFloat(c.pct)/100};
 }
 // what a 1.00 move in price is worth on 1 lot, in the account's currency
@@ -1641,7 +1662,7 @@ RENDER.lots=function(){
     <div class="grid g-half" style="margin-bottom:14px">
       <div class="panel"><div class="panel-head"><h3>The trade</h3></div><div class="stack" style="gap:13px">
         <div class="field-row">
-          <div class="field"><label>Account</label><select data-chg="calcAcct"><option value="">Custom balance (USD)</option>${state.accounts.map(a=>`<option value="${a.id}" ${a.id===c.accountId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
+          <div class="field"><label>Account</label><select data-chg="calcAcct"><option value="">Custom balance (EUR)</option>${state.accounts.map(a=>`<option value="${a.id}" ${a.id===c.accountId?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>
           <div class="field"><label>Balance <em>(${esc(cur)})</em></label><input type="number" min="0" step="any" data-inp="calc" data-id="balance" value="${v(c.balance)}" placeholder="e.g. 5000"></div>
         </div>
         <div class="field"><label>Risk on this trade</label><div class="flow-add" style="align-items:center">
@@ -1722,8 +1743,8 @@ RENDER.settings=function(){
   el.innerHTML=`<div class="page-head"><div><h1>Settings</h1><p>Everything is stored in this browser only. Nothing is uploaded anywhere.</p></div></div>
     <div class="stack" style="max-width:720px">
       <div class="panel"><div class="panel-head"><h3>Season</h3></div>
-        <div class="field-row"><div class="field"><label>Season start date</label><input type="date" value="${esc(s.seasonStart)}" data-chg="seasonStart"></div><div class="field"><label>Max robots per account</label><input type="number" min="1" max="10" value="${esc(s.maxPerAccount)}" data-chg="maxPer"></div></div>
-        <p class="faint" style="font-size:12.5px;margin-top:10px">Stats, the calendar and the equity curve all count from the first trading week on or after this date (${dLong(ymd(seasonFirstWeek()))}).</p></div>
+        <div class="field-row"><div class="field"><label>Season start date</label><input type="date" value="${esc(s.seasonStart)}" data-chg="seasonStart"></div><div class="field"><label>Dollar rate <em>(1 USD = how many euros)</em></label><input type="number" min="0" step="any" value="${esc(usdRate())}" data-chg="usdRate"></div></div>
+        <p class="faint" style="font-size:12.5px;margin-top:10px">Stats, the calendar and the equity curve all count from the first trading week on or after this date (${dLong(ymd(seasonFirstWeek()))}). Every total is in euros; the dollar rate converts the cent account and anything else held in dollars.</p></div>
       <div class="panel"><div class="panel-head"><h3>Backup</h3><span class="hint">${size} KB in use</span></div>
         <p class="dim" style="font-size:13.5px;margin-bottom:12px">Download a backup now and then — clearing the browser's site data would erase everything. The file contains your account names and results, so keep it private.</p>
         <div class="actions"><button class="btn" data-act="exportData">${ico('down')}Download backup</button><button class="btn" data-act="importData">${ico('up')}Restore from backup</button><button class="btn" data-act="importAny">${ico('plus')}Load a setup file</button></div>
@@ -1735,7 +1756,7 @@ RENDER.settings=function(){
     </div>`;
 };
 CHG.seasonStart=el=>{ if(!el.value) return; state.settings.seasonStart=el.value; store.save(); render(); toast('Season start set to '+dLong(el.value)); };
-CHG.maxPer=el=>{ state.settings.maxPerAccount=Math.max(1,Math.min(10,parseInt(el.value)||2)); store.save(); render(); };
+CHG.usdRate=el=>{ const v=parseFloat(el.value); if(!(v>0)) return render(); state.settings.usdRate=v; state.accounts.forEach(a=>{ if(a.currency==='USD') a.fx=v; else if(a.currency==='USC') a.fx=Math.round(v*1e4)/1e6; }); store.save(); render(); toast(`Dollar accounts now convert at 1 USD = €${v}`); };
 ACT.exportData=()=>download(`trading-book-${todayYmd()}.json`,JSON.stringify(state,null,1));
 ACT.importData=()=>$('#backupFile').click();
 $('#backupFile').addEventListener('change',e=>{
@@ -1747,7 +1768,7 @@ $('#backupFile').addEventListener('change',e=>{
 });
 ACT.legacyBackup=()=>download(`trading-book-old-version-${todayYmd()}.json`,localStorage.getItem(LEGACY_KEY)||'{}');
 ACT.legacyDelete=()=>{ if(!confirm('Delete the previous version\'s data from this browser?\n\nThis can\'t be undone. Download a copy first if you might want it.')) return; localStorage.removeItem(LEGACY_KEY); render(); toast('Old data deleted','del'); };
-ACT.eraseAll=()=>{ if(!confirm('Erase EVERYTHING in the app?\n\nAll accounts, robots, test runs, logged weeks and deposit plans. This can\'t be undone.')) return; const keep=state.settings; state=blank(); state.settings={...state.settings,seasonStart:keep.seasonStart,maxPerAccount:keep.maxPerAccount}; curRobot=null; store.save(); render(); toast('Everything erased','del'); };
+ACT.eraseAll=()=>{ if(!confirm('Erase EVERYTHING in the app?\n\nAll accounts, robots, test runs, logged weeks and deposit plans. This can\'t be undone.')) return; const keep=state.settings; state=blank(); state.settings={...state.settings,seasonStart:keep.seasonStart,usdRate:keep.usdRate}; curRobot=null; store.save(); render(); toast('Everything erased','del'); };
 
 /* ============================================================
    EVENTS + INIT
@@ -1774,6 +1795,8 @@ let rsz; window.addEventListener('resize',()=>{ clearTimeout(rsz); rsz=setTimeou
 ['orbApiKey','orbAiModel','orbDraftNotes'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
 try{ localStorage.setItem(KEY+'.probe','1'); localStorage.removeItem(KEY+'.probe'); }catch(e){ store.ok=false; showStorageWarning(e); }
 buildNav();
+if(store.legacyUsd) migrateBase();
+migrateRules();
 applyDuePlans();
 go('overview');
 checkPack();
