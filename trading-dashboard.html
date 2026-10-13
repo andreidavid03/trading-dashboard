@@ -261,6 +261,11 @@
   details.cal[open] summary{margin-bottom:11px}
   .btn:disabled{opacity:.4;cursor:default}
 
+  .rule{display:flex;gap:13px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line-soft)}
+  .rule:last-child{border-bottom:0;padding-bottom:2px}
+  .rule .rn{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line-soft);display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--txt-dim);font-variant-numeric:tabular-nums}
+  .rule .rt{flex:1;min-width:0;font-size:14px;line-height:1.5}
+
   @media (max-width:980px){
     .app{grid-template-columns:1fr}
     .side{position:static;height:auto;flex-direction:row;align-items:center;gap:10px;padding:10px 12px;border-right:0;border-bottom:1px solid var(--line-soft);overflow-x:auto}
@@ -299,6 +304,7 @@
     <section id="calendar" class="view"></section>
     <section id="lab" class="view"></section>
     <section id="deposits" class="view"></section>
+    <section id="rules" class="view"></section>
     <section id="lots" class="view"></section>
     <section id="chart" class="view"></section>
     <section id="settings" class="view"></section>
@@ -328,6 +334,7 @@
       <div class="field"><label>Magic number <em>(optional)</em></label><input id="rbMagic" placeholder="unique per EA"></div>
       <div class="field"><label>.set file <em>(optional)</em></label><input id="rbSet" placeholder="settings file name"></div>
     </div>
+    <div class="field"><label>Switch-off line <em>(stop the robot once it has lost this much, in its account's currency — optional)</em></label><input type="number" min="0" step="any" id="rbStop" placeholder="e.g. 130"></div>
     <div class="field"><label>Notes <em>(licence, rules, what to watch)</em></label><textarea id="rbNote"></textarea></div>
     <div class="field"><label>Colour</label><div class="swatches" id="rbColors"></div></div>
     <div class="modal-foot"><button class="btn ghost" data-close="robotOverlay">Cancel</button><button class="btn primary" id="rbSave">Save robot</button></div>
@@ -360,18 +367,25 @@
     <input type="hidden" id="acId">
     <div class="field"><label>Account name</label><input id="acName" placeholder="e.g. Vantage Raw 1"></div>
     <div class="field-row">
-      <div class="field"><label>Broker</label><input id="acBroker" placeholder="e.g. Vantage" list="brokerList"><datalist id="brokerList"><option>Vantage</option><option>VT Markets</option><option>PU Prime</option><option>XM</option><option>Headway</option><option>IC Markets</option></datalist></div>
+      <div class="field"><label>Broker</label><input id="acBroker" placeholder="e.g. Vantage" list="brokerList"><datalist id="brokerList"><option>Vantage</option><option>VT Markets</option><option>PU Prime</option><option>XM</option><option>Headway</option><option>IC Markets</option><option>FTMO</option></datalist></div>
       <div class="field"><label>Status</label><select id="acStatus"><option value="running">Active — trading now</option><option value="waiting">Waiting — not funded / deployed</option><option value="paused">Paused</option></select></div>
     </div>
     <div class="field-row">
       <div class="field"><label>Account currency</label><select id="acCur"><option value="USD">USD</option><option value="USC">USC — cent account</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select></div>
       <div class="field"><label>1 unit = how many USD</label><input type="number" step="any" id="acFx"></div>
     </div>
-    <div class="field"><label>Starting balance <em id="acBalHint">(in the account's currency)</em></label><input type="number" step="any" id="acBalance" placeholder="0"></div>
+    <div class="field-row">
+      <div class="field"><label>Whose money</label><select id="acKind"><option value="own">My own money</option><option value="funded">Funded by a prop firm (FTMO…)</option></select></div>
+      <div class="field" id="acSplitWrap"><label>Your profit split %</label><input type="number" min="0" max="100" step="any" id="acSplit"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label id="acBalLabel">Starting balance</label><input type="number" step="any" id="acBalance" placeholder="0"></div>
+      <div class="field"><label>Stop line <em>(optional)</em></label><input type="number" min="0" step="any" id="acFloor" placeholder="switch off below this"></div>
+    </div>
     <label class="check"><input type="checkbox" id="acDemo"> Demo account — keep its results out of my real totals</label>
     <div class="field"><label>Colour</label><div class="swatches" id="acColors"></div></div>
     <div class="field">
-      <label style="display:flex;justify-content:space-between"><span>Deposits &amp; withdrawals</span><span id="flowsNet" class="num"></span></label>
+      <label style="display:flex;justify-content:space-between"><span id="flowsLbl">Deposits &amp; withdrawals</span><span id="flowsNet" class="num"></span></label>
       <div id="flowsList"></div>
       <div class="flow-add">
         <input type="number" step="any" id="flowAmount" placeholder="Amount">
@@ -414,6 +428,17 @@
 <div class="overlay" id="importOverlay"><div class="modal" style="max-width:420px">
   <div class="modal-head"><div><h3>Reading report…</h3><p id="impName"></p></div></div>
   <div class="modal-body"><div class="progress"><i id="impBar"></i></div><p class="faint" style="font-size:12px" id="impHint">Big Strategy Tester reports can take a few seconds.</p></div>
+</div></div>
+
+<!-- ============ RULE MODAL ============ -->
+<div class="overlay" id="ruleOverlay"><div class="modal">
+  <div class="modal-head"><div><h3 id="ruTitle">New rule</h3><p>One rule, written so you can check it with a yes or no</p></div><button class="x" data-close="ruleOverlay" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="modal-body">
+    <input type="hidden" id="ruId">
+    <div class="field"><label>Belongs to</label><input id="ruGroup" list="ruGroups" placeholder="e.g. Yuvi, FTMO funded account, All accounts"><datalist id="ruGroups"></datalist></div>
+    <div class="field"><label>Rule</label><textarea id="ruText" style="min-height:96px" placeholder="e.g. Off on Friday at 15:00, once no cycle is open."></textarea></div>
+    <div class="modal-foot"><button class="btn ghost" data-close="ruleOverlay">Cancel</button><button class="btn primary" id="ruSave">Save rule</button></div>
+  </div>
 </div></div>
 
 <!-- ============ INSTRUMENT MODAL ============ -->
@@ -533,7 +558,10 @@ const robotById=id=>state.robots.find(r=>r.id===id);
 const fxOf=a=>a&&Number(a.fx)>0?Number(a.fx):1;
 function keyAccount(k){ if(k.startsWith('acct:')) return acctById(k.slice(5)); const r=robotById(k); return r?acctById(r.accountId):null; }
 const isRealKey=k=>{ const a=keyAccount(k); return !(a&&a.demo); };
-const keyUsd=(k,v)=>(Number(v)||0)*fxOf(keyAccount(k));
+// a funded (prop-firm) account: only your profit split counts as yours
+const shareOf=a=>a&&a.funded?Math.max(0,Math.min(100,Number(a.split)||0))/100:1;
+const keyUsd=(k,v)=>{ const a=keyAccount(k); return (Number(v)||0)*fxOf(a)*shareOf(a); };
+const isOwnKey=k=>{ const a=keyAccount(k); return !(a&&(a.demo||a.funded)); };
 function keyLabel(k){ if(k.startsWith('acct:')){ const a=acctById(k.slice(5)); return 'Other · '+(a?a.name:'deleted account'); } const r=robotById(k); return r?r.name:'Deleted robot'; }
 function keyColor(k){ if(k.startsWith('acct:')){ const a=acctById(k.slice(5)); return a?a.color:'var(--txt-faint)'; } const r=robotById(k); return r?r.color:'var(--txt-faint)'; }
 
@@ -553,7 +581,12 @@ function statsFrom(ser){
 const acctFilter=a=>k=>{ const x=keyAccount(k); return !!x&&x.id===a.id; };
 function netDepositedNative(a){ let t=Number(a.balance)||0; (a.flows||[]).forEach(f=>{ t+=(f.type==='withdrawal'?-1:1)*(Number(f.amount)||0); }); return t; }
 function acctPnlUsd(a){ let t=0; const f=acctFilter(a); for(const wk in state.entries){ const e=state.entries[wk]; for(const k in e) if(f(k)) t+=keyUsd(k,e[k]); } return t; }
-const acctBalanceUsd=a=>netDepositedNative(a)*fxOf(a)+acctPnlUsd(a);
+function acctPnlNative(a){ let t=0; const f=acctFilter(a); for(const wk in state.entries){ const e=state.entries[wk]; for(const k in e) if(f(k)) t+=Number(e[k])||0; } return t; }
+const payoutsNative=a=>sum((a.flows||[]).filter(f=>f.type==='withdrawal').map(f=>f.amount));
+// own account: deposits + P&L. Funded account: your share of the profit that hasn't been paid out yet.
+const acctBalanceUsd=a=>a.funded?acctPnlUsd(a)-payoutsNative(a)*fxOf(a):netDepositedNative(a)*fxOf(a)+acctPnlUsd(a);
+// what the account itself holds, in its own currency (a payout of your share takes the matching gross profit out of a funded account)
+function acctHoldNative(a){ if(!a.funded) return netDepositedNative(a)+acctPnlNative(a); const sh=shareOf(a); return (Number(a.balance)||0)+acctPnlNative(a)-(sh>0?payoutsNative(a)/sh:0); }
 const isSlotStage=s=>s==='live'||s==='demo';
 const slotsUsed=(aid,except)=>state.robots.filter(r=>r.accountId===aid&&r.id!==except&&isSlotStage(r.stage)).length;
 const maxSlots=()=>Math.max(1,Number(state.settings.maxPerAccount)||2);
@@ -814,6 +847,7 @@ const ICON={
   bot:'<rect x="4" y="8" width="16" height="12" rx="2.5"/><path d="M12 8V4M9 14h.01M15 14h.01M2 13h2M20 13h2"/>',
   card:'<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/>',
   cal:'<rect x="3" y="4" width="18" height="17" rx="2.5"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/>',
   layers:'<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5"/>',
   coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.1 1.1-1.8 2.5-1.8s2.5.6 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.8 2.5 1.8 2.5-.7 2.5-1.7"/>',
   chart:'<path d="M7 4v4M7 16v4M17 3v3M17 14v6"/><rect x="5" y="8" width="4" height="8" rx="1"/><rect x="15" y="6" width="4" height="8" rx="1"/>',
@@ -822,7 +856,7 @@ const ICON={
   plus:'<path d="M12 5v14M5 12h14"/>', up:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>', down:'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>', back:'<path d="M15 6l-6 6 6 6"/>'
 };
 const ico=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
-const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],'sep',['lots','Lot size','calc'],['chart','Chart','chart'],['settings','Settings','gear']];
+const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],['rules','Rules','shield'],'sep',['lots','Lot size','calc'],['chart','Chart','chart'],['settings','Settings','gear']];
 const RENDER={}, ACT={}, CHG={};
 let curView='overview';
 function buildNav(){ $('#nav').innerHTML=NAV.map(n=>n==='sep'?'<div class="sep"></div>':`<button data-view="${n[0]}">${ico(n[2])}<span>${n[1]}</span><span class="cnt" id="cnt-${n[0]}"></span></button>`).join(''); }
@@ -845,8 +879,9 @@ const kpi=(l,v,s,c)=>`<div class="kpi"><div class="l">${l}</div><div class="v ${
 RENDER.overview=function(){
   const el=$('#overview'), d=daysToStart(), weeks=seasonWeeks();
   const ser=seriesFor(isRealKey), st=statsFrom(ser);
-  const real=state.accounts.filter(a=>!a.demo), equity=sum(real.map(acctBalanceUsd)), dep=sum(real.map(a=>netDepositedNative(a)*fxOf(a)));
-  const ret=dep>0&&st.weeks?st.net/dep*100:null;
+  const real=state.accounts.filter(a=>!a.demo&&!a.funded), equity=sum(real.map(acctBalanceUsd)), dep=sum(real.map(a=>netDepositedNative(a)*fxOf(a)));
+  const funded=state.accounts.filter(a=>a.funded&&!a.demo), stOwn=statsFrom(seriesFor(isOwnKey));
+  const ret=dep>0&&stOwn.weeks?stOwn.net/dep*100:null;
   const steps=[
     ['accounts','Add your broker accounts',state.accounts.length?`${state.accounts.length} added`:'Where the robots will trade',state.accounts.length>0],
     ['robots','Add the robots you\'ll use',state.robots.length?`${state.robots.length} in the lab`:'Only the ones you actually plan to run',state.robots.length>0],
@@ -867,7 +902,7 @@ RENDER.overview=function(){
   }).join('');
   const acctRows=state.accounts.map(a=>{
     const p=acctPnlUsd(a), nd=netDepositedNative(a)*fxOf(a), used=slotsUsed(a.id), mx=maxSlots();
-    return `<tr class="click" data-act="go" data-id="accounts"><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${esc(a.broker||'—')}${a.demo?' · demo':''}</div></td><td>${badge(a.status||'running',AC_LABEL[a.status||'running'])}</td><td><span class="slots" title="${used} of ${mx} robot slots used">${Array.from({length:mx},(_,i)=>`<i class="${i<used?'on':''}"></i>`).join('')}</span></td><td class="r">${money(acctBalanceUsd(a))}</td><td class="r ${cls(p)}">${p?signed(p):'—'}</td><td class="r">${nd>0&&p?pct(p/nd*100):'—'}</td></tr>`;
+    return `<tr class="click" data-act="go" data-id="accounts"><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${esc(a.broker||'—')}${a.demo?' · demo':''}</div></td><td>${badge(a.status||'running',AC_LABEL[a.status||'running'])}</td><td><span class="slots" title="${used} of ${mx} robot slots used">${Array.from({length:mx},(_,i)=>`<i class="${i<used?'on':''}"></i>`).join('')}</span></td><td class="r">${a.funded?'<span class="faint">funded</span>':money(acctBalanceUsd(a))}</td><td class="r ${cls(p)}">${p?signed(p):'—'}</td><td class="r">${nd>0&&p?pct(p/nd*100):'—'}</td></tr>`;
   }).join('');
   const pipe=STAGES.map(([k,l])=>{ const rs=state.robots.filter(r=>r.stage===k); return `<div class="row"><span class="l">${badge(k,l)}</span><span class="r">${rs.length}</span></div>`; }).join('');
   const pend=state.plans.filter(p=>!p.appliedFlowId).sort((a,b)=>a.date<b.date?-1:1).slice(0,4);
@@ -882,8 +917,9 @@ RENDER.overview=function(){
         <div class="sub"><span>Return on deposits <b class="${cls(ret)}">${pct(ret)}</b></span><span>Average week <b class="${cls(st.avg)}">${dash(st.avg,signed)}</b></span></div></div>
     </div></div>
     <div class="kpis" style="margin-bottom:14px">
-      ${kpi('Equity',money(equity),real.length?`${real.length} real account${real.length===1?'':'s'}`:'no accounts yet')}
+      ${kpi('Equity',money(equity),real.length?`${real.length} account${real.length===1?'':'s'} of your own money`:'no accounts yet')}
       ${kpi('Net deposited',money(dep),'money in minus money out')}
+      ${funded.length?kpi('Funded accounts',signed(st.net-stOwn.net),'your share of their profit',cls(st.net-stOwn.net)):''}
       ${kpi('Winning weeks',st.weeks?`${st.wins} / ${st.weeks}`:'—',st.weeks?Math.round(st.wins/st.weeks*100)+'% of weeks':'')}
       ${kpi('Profit factor',dash(st.pf,v=>v.toFixed(2)),'gains ÷ losses, by week')}
       ${kpi('Max drawdown',st.dd?money(-st.dd):'—',st.dd&&dep>0?pctPlain(st.dd/dep*100)+' of deposits':'peak-to-trough, weekly')}
@@ -1033,7 +1069,7 @@ function openRobotModal(r){
   $('#rbAccount').innerHTML='<option value="">— none yet —</option>'+state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)} (${slotsUsed(a.id,r&&r.id)}/${maxSlots()} used)</option>`).join('');
   $('#rbId').value=r?r.id:''; $('#rbName').value=r?r.name:''; $('#rbStage').value=r?r.stage:'backtest'; $('#rbAccount').value=r&&acctById(r.accountId)?r.accountId:'';
   $('#rbSymbol').value=r?r.symbol||'':''; $('#rbTf').value=r?r.timeframe||'':''; $('#rbPlatform').value=r?r.platform||'MT5':'MT5';
-  $('#rbStrategy').value=r?r.strategy||'':''; $('#rbVendor').value=r?r.vendor||'':''; $('#rbMagic').value=r?r.magic||'':''; $('#rbSet').value=r?r.setFile||'':''; $('#rbNote').value=r?r.note||'':'';
+  $('#rbStrategy').value=r?r.strategy||'':''; $('#rbVendor').value=r?r.vendor||'':''; $('#rbMagic').value=r?r.magic||'':''; $('#rbSet').value=r?r.setFile||'':''; $('#rbNote').value=r?r.note||'':''; $('#rbStop').value=r&&r.stopAt?r.stopAt:'';
   rbColor=r?r.color:nextColor(state.robots); paintSwatches($('#rbColors'),rbColor,c=>rbColor=c);
   $('#rbAcctHint').textContent=`(max ${maxSlots()} robots each)`;
   openOverlay('robotOverlay'); setTimeout(()=>$('#rbName').focus(),40);
@@ -1045,7 +1081,7 @@ $('#rbSave').onclick=()=>{
     if(!accountId) return toast('Pick the account it runs on — forward-test and live robots need one','warn');
     if(slotsUsed(accountId,id)>=maxSlots()) return toast(`${acctById(accountId).name} already runs ${maxSlots()} robots — that's your limit per account. Move or retire one first.`,'warn');
   }
-  const data={name,stage,accountId,symbol:$('#rbSymbol').value.trim(),timeframe:$('#rbTf').value.trim(),platform:$('#rbPlatform').value,strategy:$('#rbStrategy').value,vendor:$('#rbVendor').value.trim(),magic:$('#rbMagic').value.trim(),setFile:$('#rbSet').value.trim(),note:$('#rbNote').value.trim(),color:rbColor};
+  const data={name,stage,accountId,symbol:$('#rbSymbol').value.trim(),timeframe:$('#rbTf').value.trim(),platform:$('#rbPlatform').value,strategy:$('#rbStrategy').value,vendor:$('#rbVendor').value.trim(),magic:$('#rbMagic').value.trim(),setFile:$('#rbSet').value.trim(),note:$('#rbNote').value.trim(),stopAt:parseFloat($('#rbStop').value)||'',color:rbColor};
   if(id) Object.assign(robotById(id),data); else { const r={id:uid(),addedAt:todayYmd(),...data}; state.robots.push(r); curRobot=r.id; curView='robots'; }
   store.save(); closeOverlay('robotOverlay'); go(curView); toast(id?'Robot updated':`Added "${name}"`);
 };
@@ -1057,20 +1093,22 @@ ACT.importRun=()=>{ importTarget=curRobot; $('#reportFile').click(); };
 let packOffer=null, packDismissed=false;
 const sameRun=(a,b)=>a.label===b.label&&(a.from||'')===(b.from||'')&&(a.to||'')===(b.to||'')&&(a.stats||{}).net===(b.stats||{}).net;
 const packRobot=pr=>state.robots.find(x=>x.name.trim().toLowerCase()===String(pr.name).trim().toLowerCase());
-function packDelta(pack){ let nr=0, nu=0; pack.robots.forEach(pr=>{ const r=packRobot(pr); if(!r) nr++; (pr.runs||[]).forEach(u=>{ if(!r||!runsOf(r.id).some(x=>sameRun(x,u))) nu++; }); }); return {nr,nu}; }
+function packDelta(pack){ let nr=0, nu=0, nf=0; pack.robots.forEach(pr=>{ const r=packRobot(pr); if(!r) nr++; else if(pr.stopAt&&!r.stopAt) nf++; (pr.runs||[]).forEach(u=>{ if(!r||!runsOf(r.id).some(x=>sameRun(x,u))) nu++; }); }); return {nr,nu,nf}; }
 function mergePack(pack){
-  let nr=0, nu=0;
+  let nr=0, nu=0, nf=0;
   pack.robots.forEach(pr=>{
     let r=packRobot(pr);
+    if(r&&pr.stopAt&&!r.stopAt){ r.stopAt=pr.stopAt; nf++; }
     if(!r){ const {runs,...info}=pr; r={id:uid(),addedAt:todayYmd(),stage:'backtest',accountId:'',symbol:'',timeframe:'',platform:'MT5',strategy:'',vendor:'',magic:'',setFile:'',note:'',...info,color:nextColor(state.robots)}; state.robots.push(r); nr++; }
     (pr.runs||[]).forEach(u=>{ if(runsOf(r.id).some(x=>sameRun(x,u))) return; state.runs.push({...u,id:uid(),robotId:r.id,importedAt:todayYmd()}); nu++; });
   });
-  return {nr,nu,ok:store.save()};
+  return {nr,nu,nf,ok:store.save()};
 }
-const packMsg=r=>r.ok?`Added ${r.nr} robot${r.nr===1?'':'s'} and ${r.nu} test run${r.nu===1?'':'s'}`:'Browser storage is full — not everything was saved';
+const packParts=d=>[d.nr?`${d.nr} robot${d.nr===1?'':'s'}`:'',d.nu?`${d.nu} test run${d.nu===1?'':'s'}`:'',d.nf?`switch-off lines for ${d.nf} robot${d.nf===1?'':'s'}`:''].filter(Boolean).join(', ');
+const packMsg=r=>r.ok?'Added '+(packParts(r)||'nothing new'):'Browser storage is full — not everything was saved';
 // if a pack sits next to the app (served by the launcher), offer to add whatever isn't in yet
-function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ if(!p||!Array.isArray(p.robots)) return; const d=packDelta(p); if(d.nr||d.nu){ packOffer={pack:p,...d}; if(curView==='overview'||curView==='robots') render(); } }).catch(()=>{}); }
-const packBanner=()=>packOffer&&!packDismissed?`<div class="panel" style="margin-bottom:14px;border-color:rgba(57,135,229,.45)"><div class="panel-head" style="margin-bottom:6px"><h3>Ready to add: ${packOffer.nr} robot${packOffer.nr===1?'':'s'} and ${packOffer.nu} test run${packOffer.nu===1?'':'s'}</h3><span class="hint">from trading-book-robots.json in the app folder</span></div><p class="dim" style="font-size:13.5px;margin-bottom:12px">They are added next to what you already have. Nothing is replaced.</p><div class="actions"><button class="btn primary" data-act="packAdd">Add them</button><button class="btn ghost" data-act="packLater">Not now</button></div></div>`:'';
+function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ if(!p||!Array.isArray(p.robots)) return; const d=packDelta(p); if(d.nr||d.nu||d.nf){ packOffer={pack:p,...d}; if(curView==='overview'||curView==='robots') render(); } }).catch(()=>{}); }
+const packBanner=()=>packOffer&&!packDismissed?`<div class="panel" style="margin-bottom:14px;border-color:rgba(57,135,229,.45)"><div class="panel-head" style="margin-bottom:6px"><h3>Ready to add: ${packParts(packOffer)}</h3><span class="hint">from trading-book-robots.json in the app folder</span></div><p class="dim" style="font-size:13.5px;margin-bottom:12px">They are added next to what you already have. Nothing is replaced.</p><div class="actions"><button class="btn primary" data-act="packAdd">Add them</button><button class="btn ghost" data-act="packLater">Not now</button></div></div>`:'';
 ACT.packAdd=()=>{ if(!packOffer) return; const r=mergePack(packOffer.pack); packOffer=null; curRobot=null; go('robots'); toast(packMsg(r),r.ok?'ok':'warn'); };
 ACT.packLater=()=>{ packDismissed=true; render(); };
 $('#reportFile').addEventListener('change',async e=>{
@@ -1135,15 +1173,20 @@ $('#runSave').onclick=()=>{
 RENDER.accounts=function(){
   const el=$('#accounts'), mx=maxSlots();
   const cards=state.accounts.map(a=>{
-    const st=a.status||'running', p=acctPnlUsd(a), nd=netDepositedNative(a), ndU=nd*fxOf(a), bal=acctBalanceUsd(a), rs=state.robots.filter(r=>r.accountId===a.id&&isSlotStage(r.stage));
+    const st=a.status||'running', p=acctPnlUsd(a), gross=acctPnlNative(a), nd=netDepositedNative(a), ndU=nd*fxOf(a), bal=acctBalanceUsd(a), rs=state.robots.filter(r=>r.accountId===a.id&&isSlotStage(r.stage));
     const usd=(a.currency||'USD')==='USD';
     return `<div class="card">
-      <div class="card-top"><div style="min-width:0"><div class="card-title">${dot(a.color)}<span class="t">${esc(a.name)}</span></div><div class="card-sub">${esc(a.broker||'No broker set')} · ${esc(a.currency||'USD')}${a.demo?' · demo':''}</div></div>${badge(st,AC_LABEL[st])}</div>
-      <div><div class="faint" style="font-size:11.5px;font-weight:600">Balance</div><div style="font-size:26px;font-weight:720;letter-spacing:-.02em">${money(bal)}</div></div>
+      <div class="card-top"><div style="min-width:0"><div class="card-title">${dot(a.color)}<span class="t">${esc(a.name)}</span></div><div class="card-sub">${esc(a.broker||'No broker set')} · ${esc(a.currency||'USD')}${a.funded?' · funded':''}${a.demo?' · demo':''}</div></div>${badge(st,AC_LABEL[st])}</div>
+      <div><div class="faint" style="font-size:11.5px;font-weight:600">${a.funded?'Your unpaid share':'Balance'}</div><div style="font-size:26px;font-weight:720;letter-spacing:-.02em">${money(bal)}</div></div>
       <div class="rows">
-        <div class="row"><span class="l">Season P&amp;L</span><span class="r ${cls(p)}">${p?signed(p):'—'}</span></div>
+        ${a.funded?`<div class="row"><span class="l">Funded account size</span><span class="r">${nativeMoney(a,a.balance)}</span></div>
+        <div class="row"><span class="l">Profit on the account</span><span class="r ${cls(gross)}">${gross?(gross>0?'+':'')+nativeMoney(a,gross):'—'}</span></div>
+        <div class="row"><span class="l">Your ${Math.round(shareOf(a)*100)}% share</span><span class="r ${cls(p)}">${p?signed(p):'—'}</span></div>
+        <div class="row"><span class="l">Payouts received</span><span class="r">${nativeMoney(a,payoutsNative(a))}</span></div>`
+        :`<div class="row"><span class="l">Season P&amp;L</span><span class="r ${cls(p)}">${p?signed(p):'—'}</span></div>
         <div class="row"><span class="l">Net deposited</span><span class="r">${money(ndU)}${usd?'':` <span class="faint">(${nativeMoney(a,nd)})</span>`}</span></div>
-        <div class="row"><span class="l">Return on deposits</span><span class="r ${cls(p)}">${ndU>0&&p?pct(p/ndU*100):'—'}</span></div>
+        <div class="row"><span class="l">Return on deposits</span><span class="r ${cls(p)}">${ndU>0&&p?pct(p/ndU*100):'—'}</span></div>`}
+        ${Number(a.floor)>0?`<div class="row"><span class="l">Stop line</span><span class="r ${acctHoldNative(a)<Number(a.floor)?'neg':''}">${nativeMoney(a,a.floor)}</span></div>`:''}
         <div class="row"><span class="l">Robots <span class="slots" style="margin-left:6px">${Array.from({length:mx},(_,i)=>`<i class="${i<rs.length?'on':''}"></i>`).join('')}</span></span><span class="r">${rs.length?rs.map(r=>esc(r.name)).join(', '):`${mx} free slot${mx===1?'':'s'}`}</span></div>
       </div>
       <div class="card-actions"><button class="btn sm" data-act="cycleAcct" data-id="${a.id}">Set status</button><button class="btn sm" data-act="editAcct" data-id="${a.id}">Edit</button><button class="btn sm danger" data-act="delAcct" data-id="${a.id}">Delete</button></div>
@@ -1169,10 +1212,13 @@ function openAcctModal(a){
   $('#acTitle').textContent=a?'Edit account':'New account';
   $('#acId').value=a?a.id:''; $('#acName').value=a?a.name:''; $('#acBroker').value=a?a.broker||'':''; $('#acStatus').value=a?a.status||'running':'waiting';
   $('#acCur').value=a?a.currency||'USD':'USD'; $('#acFx').value=a?fxOf(a):1; $('#acBalance').value=a&&a.balance?a.balance:''; $('#acDemo').checked=!!(a&&a.demo);
+  $('#acKind').value=a&&a.funded?'funded':'own'; $('#acSplit').value=a&&a.split!=null&&a.split!==''?a.split:80; $('#acFloor').value=a&&a.floor?a.floor:''; paintAcKind();
   acColor=a?a.color:nextColor(state.accounts); paintSwatches($('#acColors'),acColor,c=>acColor=c);
   modalFlows=a?(a.flows||[]).map(f=>({...f})):[]; $('#flowAmount').value=''; $('#flowType').value='deposit'; $('#flowDate').value=todayYmd(); paintFlows();
   openOverlay('acctOverlay'); setTimeout(()=>$('#acName').focus(),40);
 }
+function paintAcKind(){ const f=$('#acKind').value==='funded'; $('#acSplitWrap').style.visibility=f?'visible':'hidden'; $('#acBalLabel').textContent=f?'Funded account size':'Starting balance'; $('#flowsLbl').textContent=f?'Payouts received (add as withdrawals)':'Deposits & withdrawals'; if(f&&!modalFlows.length) $('#flowType').value='withdrawal'; }
+$('#acKind').onchange=paintAcKind;
 $('#acCur').onchange=()=>{ const c=$('#acCur').value; if(c==='USD') $('#acFx').value=1; else if(c==='USC') $('#acFx').value=0.01; else { $('#acFx').value=''; $('#acFx').focus(); toast(`Enter today's ${c}→USD rate so totals add up`,'warn'); } paintFlows(); };
 function paintFlows(){
   const cur={currency:$('#acCur').value};
@@ -1188,7 +1234,7 @@ $('#acSave').onclick=()=>{
   if(!name){ $('#acName').focus(); return toast('Give the account a name','warn'); }
   if(!(fx>0)){ $('#acFx').focus(); return toast('Enter how many USD one unit of this currency is worth','warn'); }
   takePendingFlow();   // an amount typed but not yet added still counts
-  const data={name,broker:$('#acBroker').value.trim(),status:$('#acStatus').value,currency:$('#acCur').value,fx,balance:parseFloat($('#acBalance').value)||0,demo:$('#acDemo').checked,color:acColor,flows:modalFlows.map(f=>({...f}))};
+  const data={name,broker:$('#acBroker').value.trim(),status:$('#acStatus').value,currency:$('#acCur').value,fx,balance:parseFloat($('#acBalance').value)||0,demo:$('#acDemo').checked,funded:$('#acKind').value==='funded',split:(v=>isFinite(v)?v:80)(parseFloat($('#acSplit').value)),floor:parseFloat($('#acFloor').value)||'',color:acColor,flows:modalFlows.map(f=>({...f}))};
   if(id) Object.assign(acctById(id),data); else state.accounts.push({id:uid(),...data});
   store.save(); closeOverlay('acctOverlay'); render(); toast(id?'Account updated':`Added "${name}"`);
 };
@@ -1234,7 +1280,7 @@ function openWeek(wk){
   let html='';
   state.accounts.forEach(a=>{
     const rs=state.robots.filter(r=>r.accountId===a.id&&(isSlotStage(r.stage)||e[r.id]!=null));
-    html+=`<div class="wk-acct">${dot(a.color)}${esc(a.name)}${a.demo?' · demo (not in totals)':''}${a.currency==='USC'?' · enter cents':''}</div>`+rs.map(r=>row(r.id,r.name,r.color,a)).join('')+row('acct:'+a.id,rs.length?'Other / manual trades':'Account P&L',a.color,a);
+    html+=`<div class="wk-acct">${dot(a.color)}${esc(a.name)}${a.demo?' · demo (not in totals)':''}${a.funded?` · funded, counted at your ${Math.round(shareOf(a)*100)}% share`:''}${a.currency==='USC'?' · enter cents':''}</div>`+rs.map(r=>row(r.id,r.name,r.color,a)).join('')+row('acct:'+a.id,rs.length?'Other / manual trades':'Account P&L',a.color,a);
   });
   const orphans=state.robots.filter(r=>!acctById(r.accountId)&&(isSlotStage(r.stage)||e[r.id]!=null));
   if(orphans.length) html+=`<div class="wk-acct">Not on an account</div>`+orphans.map(r=>row(r.id,r.name,r.color,null)).join('');
@@ -1327,6 +1373,81 @@ CHG.labLimit=el=>{ state.lab.limit=el.value; store.save(); render(); };
 CHG.labOn=el=>{ labPick(robotById(el.dataset.id)).on=el.checked; store.save(); render(); };
 CHG.labRun=el=>{ labPick(robotById(el.dataset.id)).run=el.value; store.save(); render(); };
 CHG.labScale=el=>{ const v=parseFloat(el.value); labPick(robotById(el.dataset.id)).scale=v>0?v:1; store.save(); render(); };
+
+/* ============================================================
+   RULES — the user's own operating rules, plus the checks the app
+   can actually measure: account stop lines and robot switch-off lines.
+   ============================================================ */
+function defaultRules(){
+  const R=(group,text)=>({id:uid(),group,text});
+  return [
+    R('Yuvi','Settings never change while it runs: lot 0.01, 25% equity stop on, no bonus on the account.'),
+    R('Yuvi','Hours: on Monday at 08:00, off Friday at 15:00 (MT5 server time). No positions over the weekend.'),
+    R('Yuvi','Switch the algo off only when no cycle is open. With positions open and the algo off, nothing manages them.'),
+    R('Yuvi','After a 25% stop, off until the next day.'),
+    R('Yuvi','Last Friday of the month, once it is flat: withdraw everything above $800.'),
+    R('Yuvi','Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.'),
+    R('Yuvi','Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.'),
+    R('Gold robot accounts','Fixed lot 0.01 per robot. Every risk-percent or auto-lot setting is off; the lot does not grow with the balance.'),
+    R('Gold robot accounts','Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.'),
+    R('Gold robot accounts','Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).'),
+    R('Gold robot accounts','Four-week check: a scalper earning less than half its tested average per trade gets switched off.'),
+    R('Gold robot accounts','Profits stay in as a cushion for the first three months. No withdrawals and no lot increase until then.'),
+    R('Account management','Trading access only, with the account in my own name.'),
+    R('Account management','Maximum loss decided in advance: 30% (about €130). If it is hit, take the rest out.'),
+    R('FTMO funded account','Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.'),
+    R('FTMO funded account','Size every trade on the Lot size page, at a risk per trade decided in advance.'),
+    R('FTMO funded account','Stop trading for the day at half the daily loss limit.'),
+    R('FTMO funded account','Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.'),
+    R('All accounts','Changes only at the weekend, one at a time, with a note in that week\'s log.'),
+    R('All accounts','Log every week in the Calendar on Sunday.'),
+    R('All accounts','No money beyond the €2,000, and no moving money between accounts to rescue one, until the three-month review.')
+  ];
+}
+function robotPnlNative(id){ let t=0, n=0; for(const wk in state.entries){ const v=state.entries[wk][id]; if(v!=null){ t+=Number(v)||0; n++; } } return {t,n}; }
+RENDER.rules=function(){
+  if(!Array.isArray(state.rules)) state.rules=defaultRules();
+  const el=$('#rules');
+  const acRows=state.accounts.filter(a=>Number(a.floor)>0).map(a=>{
+    const hold=acctHoldNative(a), room=hold-Number(a.floor), k=room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
+    return `<tr><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${a.funded?'funded account':'own money'}</div></td><td class="r">${nativeMoney(a,hold)}</td><td class="r">${nativeMoney(a,a.floor)}</td><td class="r ${cls(room)}">${room>=0?'+':''}${nativeMoney(a,room)}</td><td>${badge(k,k==='over'?'Below the line — switch off':k==='tight'?'Close to the line':'OK')}</td></tr>`; }).join('');
+  const nm=(a,v)=>a?nativeMoney(a,v):fmtNum(Math.abs(v),2);
+  const rbRows=state.robots.filter(r=>Number(r.stopAt)>0).sort((x,y)=>isSlotStage(y.stage)-isSlotStage(x.stage)).map(r=>{
+    const a=acctById(r.accountId), {t,n}=robotPnlNative(r.id), stop=Number(r.stopAt), run=isSlotStage(r.stage);
+    const k=!run?'paused':t<=-stop?'over':t<=-stop/2?'tight':'fits';
+    return `<tr class="click" data-act="openRobot" data-id="${r.id}"><td><div class="name">${dot(r.color)}${esc(r.name)}</div><div class="subl">${a?esc(a.name):'not on an account'} · ${STAGE_LABEL[r.stage]}</div></td><td class="r ${cls(t)}">${n?(t>0?'+':'')+nativeMoney(a,t):'—'}</td><td class="r">−${nm(a,stop)}</td><td class="r">${n} week${n===1?'':'s'}</td><td>${badge(k,k==='paused'?'Not running':k==='over'?'Stop reached — switch it off':k==='tight'?'Halfway to the stop':'OK')}</td></tr>`; }).join('');
+  const groups=[]; state.rules.forEach(r=>{ if(!groups.includes(r.group)) groups.push(r.group); });
+  el.innerHTML=`
+    <div class="page-head"><div><h1>Rules</h1><p>Your own operating rules. Where a rule is a number the app can measure — an account's stop line, a robot's switch-off line — it is checked against what you log each week.</p></div>
+      <div class="actions"><button class="btn primary" data-act="ruleNew">${ico('plus')}Add rule</button></div></div>
+    <div class="grid g-wide" style="margin-bottom:14px">
+      <div class="panel"><div class="panel-head"><h3>Account stop lines</h3><span class="hint">balance against the line you set</span></div>
+        ${acRows?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Account</th><th class="r">Balance</th><th class="r">Stop line</th><th class="r">Room left</th><th>Check</th></tr></thead><tbody>${acRows}</tbody></table></div>`:`<p class="faint" style="font-size:13px">No stop lines yet. Open an account with Edit and fill in “Stop line” — for example 50,000 on the Yuvi cent account ($500).</p>`}</div>
+      <div class="panel"><div class="panel-head"><h3>Robot switch-off lines</h3><span class="hint">logged result since it started</span></div>
+        ${rbRows?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th class="r">Result so far</th><th class="r">Switch off at</th><th class="r">Logged</th><th>Check</th></tr></thead><tbody>${rbRows}</tbody></table></div>`:`<p class="faint" style="font-size:13px">No switch-off lines yet. Open a robot with Edit and fill in “Switch-off line”.</p>`}</div>
+    </div>
+    <p class="note" style="margin-bottom:14px">These checks use the weekly results you log, so they are only as current as your last entry. They don't see open positions or what happened inside the week.</p>
+    ${groups.map(g=>`<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>${esc(g)}</h3><button class="btn sm ghost" data-act="ruleNew" data-id="${esc(g)}">+ Add rule</button></div>
+      ${state.rules.filter(r=>r.group===g).map((r,i)=>`<div class="rule"><span class="rn">${i+1}</span><div class="rt">${esc(r.text)}</div><div class="actions"><button class="btn sm ghost" data-act="ruleEdit" data-id="${r.id}">Edit</button><button class="btn sm ghost" data-act="ruleDel" data-id="${r.id}" aria-label="Delete rule">×</button></div></div>`).join('')}</div>`).join('')}
+    <button class="btn ghost" data-act="rulesReset">Restore the suggested rules</button>`;
+};
+function openRuleModal(r,group){
+  $('#ruTitle').textContent=r?'Edit rule':'New rule'; $('#ruId').value=r?r.id:'';
+  $('#ruGroups').innerHTML=[...new Set((state.rules||[]).map(x=>x.group))].map(g=>`<option value="${esc(g)}"></option>`).join('');
+  $('#ruGroup').value=r?r.group:(group||''); $('#ruText').value=r?r.text:'';
+  openOverlay('ruleOverlay'); setTimeout(()=>(r||group?$('#ruText'):$('#ruGroup')).focus(),40);
+}
+ACT.ruleNew=id=>openRuleModal(null,id);
+ACT.ruleEdit=id=>openRuleModal(state.rules.find(r=>r.id===id));
+ACT.ruleDel=id=>{ const r=state.rules.find(x=>x.id===id); if(!r||!confirm('Delete this rule?\n\n'+r.text)) return; state.rules=state.rules.filter(x=>x.id!==id); store.save(); render(); toast('Rule deleted','del'); };
+ACT.rulesReset=()=>{ if(!confirm('Replace your current rules with the suggested set?\n\nAny rules you wrote or changed will be lost.')) return; state.rules=defaultRules(); store.save(); render(); toast('Suggested rules restored'); };
+$('#ruSave').onclick=()=>{
+  const group=$('#ruGroup').value.trim(), text=$('#ruText').value.trim(), id=$('#ruId').value;
+  if(!group){ $('#ruGroup').focus(); return toast('Say which account or group the rule belongs to','warn'); }
+  if(!text){ $('#ruText').focus(); return toast('Write the rule','warn'); }
+  if(id) Object.assign(state.rules.find(r=>r.id===id),{group,text}); else state.rules.push({id:uid(),group,text});
+  store.save(); closeOverlay('ruleOverlay'); render(); toast(id?'Rule updated':'Rule added');
+};
 
 /* ============================================================
    DEPOSITS — planner. A plan posts itself as a deposit on its date.
@@ -1518,7 +1639,7 @@ const INP={};
 INP.calc=el=>{ state.calc[el.dataset.id]=el.value; store.save(); paintCalc(); };
 INP.tp=el=>{ const t=state.calc.tps[+el.dataset.id]; if(t){ t[el.dataset.f]=el.value; store.save(); paintCalc(); } };
 INP.eqStop=el=>{ const i=instById(el.dataset.id); if(i){ i.stop=el.value; store.save(); paintCalc(); } };
-CHG.calcAcct=el=>{ const a=acctById(el.value); state.calc.accountId=el.value; if(a){ const b=acctBalanceUsd(a)/fxOf(a); state.calc.balance=b>0?String(Math.round(b*100)/100):''; } store.save(); render(); };
+CHG.calcAcct=el=>{ const a=acctById(el.value); state.calc.accountId=el.value; if(a){ const b=acctHoldNative(a); state.calc.balance=b>0?String(Math.round(b*100)/100):''; } store.save(); render(); };
 CHG.calcInst=el=>{ state.calc.instId=el.value; store.save(); render(); };
 ACT.calcMode=id=>{ state.calc.mode=id; store.save(); render(); };
 ACT.tpAdd=()=>{ const t=state.calc.tps; if(t.length<4){ t.push({p:'',pct:''}); ACT.tpEven(); } };
