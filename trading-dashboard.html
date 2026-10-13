@@ -520,7 +520,7 @@ const AC_STATUS=['running','waiting','paused'], AC_LABEL={running:'Active',waiti
 const SRC_LABEL={tester:'Backtest',forward:'Forward test',history:'Live history'};
 
 function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',maxPerAccount:2,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}},
-  instruments:defaultInstruments(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
+  packsDone:[],instruments:defaultInstruments(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
 const store={
   ok:true, warned:false,
   load(){
@@ -1093,24 +1093,47 @@ ACT.importRun=()=>{ importTarget=curRobot; $('#reportFile').click(); };
 let packOffer=null, packDismissed=false;
 const sameRun=(a,b)=>a.label===b.label&&(a.from||'')===(b.from||'')&&(a.to||'')===(b.to||'')&&(a.stats||{}).net===(b.stats||{}).net;
 const packRobot=pr=>state.robots.find(x=>x.name.trim().toLowerCase()===String(pr.name).trim().toLowerCase());
-function packDelta(pack){ let nr=0, nu=0, nf=0; pack.robots.forEach(pr=>{ const r=packRobot(pr); if(!r) nr++; else if(pr.stopAt&&!r.stopAt) nf++; (pr.runs||[]).forEach(u=>{ if(!r||!runsOf(r.id).some(x=>sameRun(x,u))) nu++; }); }); return {nr,nu,nf}; }
-function mergePack(pack){
-  let nr=0, nu=0, nf=0;
-  pack.robots.forEach(pr=>{
-    let r=packRobot(pr);
-    if(r&&pr.stopAt&&!r.stopAt){ r.stopAt=pr.stopAt; nf++; }
-    if(!r){ const {runs,...info}=pr; r={id:uid(),addedAt:todayYmd(),stage:'backtest',accountId:'',symbol:'',timeframe:'',platform:'MT5',strategy:'',vendor:'',magic:'',setFile:'',note:'',...info,color:nextColor(state.robots)}; state.robots.push(r); nr++; }
-    (pr.runs||[]).forEach(u=>{ if(runsOf(r.id).some(x=>sameRun(x,u))) return; state.runs.push({...u,id:uid(),robotId:r.id,importedAt:todayYmd()}); nu++; });
+const packAcct=n=>state.accounts.find(a=>a.name.trim().toLowerCase()===String(n||'').trim().toLowerCase());
+// Merge a pack into what is already there. Nothing existing is replaced: accounts and robots match by name,
+// test runs are skipped if present, a robot is only placed on an account if it isn't on one. dry=true just counts.
+function mergePack(pack,dry){
+  const d={nr:0,nu:0,nf:0,na:0,np:0,nl:0}, made={};
+  (pack.accounts||[]).forEach(pa=>{
+    const key=String(pa.name).trim().toLowerCase(); if(packAcct(pa.name)) return;
+    d.na++; if(dry){ made[key]='new'; return; }
+    const a={id:uid(),broker:'',status:'waiting',currency:'USD',fx:1,balance:0,demo:false,funded:false,split:80,floor:'',flows:[],...pa,color:nextColor(state.accounts)};
+    state.accounts.push(a); made[key]=a.id;
   });
-  return {nr,nu,nf,ok:store.save()};
+  (pack.plans||[]).forEach(pp=>{ const id=made[String(pp.account||'').trim().toLowerCase()]; if(!id) return;   // only for accounts this pack creates
+    d.np++; if(!dry) state.plans.push({id:uid(),accountId:id,amount:pp.amount,date:pp.date,note:pp.note||'',repeat:false,appliedFlowId:null}); });
+  (pack.robots||[]).forEach(pr=>{
+    const {runs,account,...info}=pr; let r=packRobot(pr);
+    if(!r){ d.nr++; if(!dry){ r={id:uid(),addedAt:todayYmd(),stage:'backtest',accountId:'',symbol:'',timeframe:'',platform:'MT5',strategy:'',vendor:'',magic:'',setFile:'',note:'',...info,color:nextColor(state.robots)}; state.robots.push(r); } }
+    else if(pr.stopAt&&!r.stopAt){ d.nf++; if(!dry) r.stopAt=pr.stopAt; }
+    if(account&&!(r&&acctById(r.accountId))){ const a=packAcct(account), id=a?a.id:made[String(account).trim().toLowerCase()]; if(id){ d.nl++; if(!dry) r.accountId=id; } }
+    (runs||[]).forEach(u=>{ if(r&&runsOf(r.id).some(x=>sameRun(x,u))) return; d.nu++; if(!dry) state.runs.push({...u,id:uid(),robotId:r.id,importedAt:todayYmd()}); });
+  });
+  if(dry) return d;
+  if(pack.settings&&pack.settings.seasonStart&&state.settings.seasonStart===blank().settings.seasonStart) state.settings.seasonStart=pack.settings.seasonStart;
+  if(pack.id&&!state.packsDone.includes(pack.id)) state.packsDone.push(pack.id);
+  applyDuePlans();
+  return {...d,ok:store.save()};
 }
-const packParts=d=>[d.nr?`${d.nr} robot${d.nr===1?'':'s'}`:'',d.nu?`${d.nu} test run${d.nu===1?'':'s'}`:'',d.nf?`switch-off lines for ${d.nf} robot${d.nf===1?'':'s'}`:''].filter(Boolean).join(', ');
+const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+const packParts=d=>[d.na?plural(d.na,'account'):'',d.np?plural(d.np,'planned deposit'):'',d.nr?plural(d.nr,'robot'):'',d.nu?plural(d.nu,'test run'):'',d.nf?`switch-off lines for ${plural(d.nf,'robot')}`:'',d.nl?`${plural(d.nl,'robot')} placed on an account`:''].filter(Boolean).join(', ');
 const packMsg=r=>r.ok?'Added '+(packParts(r)||'nothing new'):'Browser storage is full — not everything was saved';
-// if a pack sits next to the app (served by the launcher), offer to add whatever isn't in yet
-function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{ if(!p||!Array.isArray(p.robots)) return; const d=packDelta(p); if(d.nr||d.nu||d.nf){ packOffer={pack:p,...d}; if(curView==='overview'||curView==='robots') render(); } }).catch(()=>{}); }
-const packBanner=()=>packOffer&&!packDismissed?`<div class="panel" style="margin-bottom:14px;border-color:rgba(57,135,229,.45)"><div class="panel-head" style="margin-bottom:6px"><h3>Ready to add: ${packParts(packOffer)}</h3><span class="hint">from trading-book-robots.json in the app folder</span></div><p class="dim" style="font-size:13.5px;margin-bottom:12px">They are added next to what you already have. Nothing is replaced.</p><div class="actions"><button class="btn primary" data-act="packAdd">Add them</button><button class="btn ghost" data-act="packLater">Not now</button></div></div>`:'';
+// A pack sitting next to the app (served by the launcher) is applied once: straight away if it is marked auto, otherwise offered.
+function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{
+  if(!p||!Array.isArray(p.robots)||(p.id&&state.packsDone.includes(p.id))) return;
+  const d=mergePack(p,true); if(!Object.values(d).some(Boolean)) return;
+  if(p.auto){ const r=mergePack(p); if(r.ok){ state.packNote=packParts(r); store.save(); } curRobot=null; go('overview'); toast(packMsg(r),r.ok?'ok':'warn'); return; }
+  packOffer={pack:p,...d}; if(curView==='overview'||curView==='robots') render();
+}).catch(()=>{}); }
+const packBanner=()=>(state.packNote?`<div class="panel" style="margin-bottom:14px;border-color:rgba(47,191,125,.4)"><div class="panel-head" style="margin-bottom:6px"><h3>Set up for you</h3><button class="btn sm" data-act="packNoteOk">Got it</button></div><p class="dim" style="font-size:13.5px">Added: ${esc(state.packNote)}. Nothing you had was replaced — check the Accounts and Robots pages and edit anything that isn't right.</p></div>`:'')
+  +(packOffer&&!packDismissed?`<div class="panel" style="margin-bottom:14px;border-color:rgba(57,135,229,.45)"><div class="panel-head" style="margin-bottom:6px"><h3>Ready to add: ${packParts(packOffer)}</h3><span class="hint">from trading-book-robots.json in the app folder</span></div><p class="dim" style="font-size:13.5px;margin-bottom:12px">They are added next to what you already have. Nothing is replaced.</p><div class="actions"><button class="btn primary" data-act="packAdd">Add them</button><button class="btn ghost" data-act="packLater">Not now</button></div></div>`:'');
 ACT.packAdd=()=>{ if(!packOffer) return; const r=mergePack(packOffer.pack); packOffer=null; curRobot=null; go('robots'); toast(packMsg(r),r.ok?'ok':'warn'); };
 ACT.packLater=()=>{ packDismissed=true; render(); };
+ACT.packNoteOk=()=>{ delete state.packNote; store.save(); render(); };
 $('#reportFile').addEventListener('change',async e=>{
   const files=[...e.target.files]; e.target.value='';
   const packs=files.filter(f=>/\.json$/i.test(f.name)), reps=files.filter(f=>!/\.json$/i.test(f.name));
