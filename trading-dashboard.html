@@ -1414,59 +1414,90 @@ CHG.labScale=el=>{ const v=parseFloat(el.value); labPick(robotById(el.dataset.id
    RULES — the user's own operating rules, plus the checks the app
    can actually measure: account stop lines and robot switch-off lines.
    ============================================================ */
+// Rules as revised on 14 Oct 2026 after re-testing them (see RULE_EDITS for what changed and why).
 function defaultRules(){
   const R=(group,text)=>({id:uid(),group,text});
   return [
-    R('Yuvi','Settings never change while it runs: lot 0.01, 25% equity stop on, no bonus on the account.'),
+    R('Yuvi','Settings never change while it runs: lot 0.01, the 25% equity stop (a percentage, not a dollar cap — the $300 cap did worse with monthly withdrawals), no bonus on the account.'),
     R('Yuvi','Hours: on Monday at 08:00, off Friday at 15:00 (MT5 server time). No positions over the weekend.'),
     R('Yuvi','Switch the algo off only when no cycle is open. With positions open and the algo off, nothing manages them.'),
     R('Yuvi','After a 25% stop, off until the next day.'),
     R('Yuvi','Last Friday of the month, once it is flat: withdraw everything above $800.'),
     R('Yuvi','Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.'),
-    R('Yuvi','Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.'),
+    R('Yuvi','Refill to $800 only from Yuvi\'s own withdrawn profits. If there isn\'t enough yet, Yuvi stops for good — that caps its loss at about $300.'),
     R('Gold robot accounts','Fixed lot 0.01 per robot. Every risk-percent or auto-lot setting is off; the lot does not grow with the balance.'),
     R('Gold robot accounts','Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.'),
-    R('Gold robot accounts','Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).'),
-    R('Gold robot accounts','Four-week check: a scalper earning less than half its tested average per trade gets switched off.'),
+    R('Gold robot accounts','Robot stop: switch a robot off once it has fallen twice its worst tested dip below its own best result so far (its switch-off line below).'),
+    R('Gold robot accounts','Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).'),
+    R('Gold robot accounts','Judge a robot only after 30 trades or two months, whichever comes later — fewer is mostly luck. Earning under half its tested result per trade by then means switch it off.'),
     R('Gold robot accounts','Profits stay in as a cushion for the first three months. No withdrawals and no lot increase until then.'),
     R('Account management','Trading access only, with the account in my own name.'),
     R('Account management','Maximum loss decided in advance: 30% (about €130). If it is hit, take the rest out.'),
-    R('FTMO funded account','Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.'),
-    R('FTMO funded account','Size every trade on the Lot size page, at a risk per trade decided in advance.'),
+    R('Account management','Log its result yourself every week from the broker\'s own statement, not from the manager\'s report.'),
+    R('FTMO funded account','Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% a day and 10% overall, and the daily limit counts open trades too — check the figures on your own account.'),
+    R('FTMO funded account','Risk at most 1% per trade, sized on the Lot size page, so it takes five losing trades to reach the daily limit.'),
     R('FTMO funded account','Stop trading for the day at half the daily loss limit.'),
+    R('FTMO funded account','Before connecting a signal copier, check FTMO\'s terms: copying other people\'s trades, news trading and holding over the weekend are restricted on some account types.'),
     R('FTMO funded account','Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.'),
     ...monthlyRules(),
+    R('All accounts','Once a day: open the VPS and check every terminal is connected, AutoTrading is on and the Journal shows no errors.'),
     R('All accounts','Changes only at the weekend, one at a time, with a note in that week\'s log.'),
     R('All accounts','Log every week in the Calendar on Sunday.'),
     R('All accounts','No money beyond the €2,000, and no moving money between accounts to rescue one, until the three-month review.')
   ];
 }
 function monthlyRules(){ const R=text=>({id:uid(),group:'Monthly review',text}); return [
-  R('First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.'),
-  R('Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.'),
-  R('Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.'),
+  R('First weekend of the month: save last month\'s account history from each MT5 terminal (History tab → right-click → Report) into the reports folder. Yuvi\'s can be imported on its robot page; for an account with two robots, Claude splits the report by robot.'),
+  R('Run the Strategy Tester for each live robot — same settings, same month — and import that report on the robot\'s page.'),
+  R('Compare the test with the robot\'s logged weeks on its page: result, drawdown and number of trades. Live under half the test, or a deeper drawdown than the test, means the robot is reviewed before it keeps running.'),
   R('Put both reports in the reports folder and ask Claude for the detailed check before changing any setting.')
 ]; }
-// one-time touch-ups to rules saved by an earlier version: only untouched default wording is changed
+// Earlier default wordings → current ones. Only text still exactly as it was shipped is changed; anything the user wrote is left alone.
+const RULE_EDITS={
+  'Settings never change while it runs: lot 0.01, 25% equity stop on, no bonus on the account.':0,
+  'Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.':6,
+  'Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.':8,
+  'Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.':8,
+  'Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).':9,
+  'Four-week check: a scalper earning less than half its tested average per trade gets switched off.':11,
+  'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':16,
+  'Size every trade on the Lot size page, at a risk per trade decided in advance.':17,
+  'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':21,
+  'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':22,
+  'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':23
+};
+const RULES_REV=3;
+// rules that first appeared in revision 3 — only these are added to an existing list (a default the user changed or deleted is never put back)
+const RULES_NEW_IN_3=[10,15,19,25];
 function migrateRules(){
-  if(!Array.isArray(state.rules)||state.settings.rulesRev>=2) return;
-  const old='Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.';
-  state.rules.forEach(r=>{ if(r.text===old) r.text='Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.'; });
-  if(!state.rules.some(r=>r.group==='Monthly review')){ const i=state.rules.findIndex(r=>r.group==='All accounts'), add=monthlyRules(); if(i<0) state.rules.push(...add); else state.rules.splice(i,0,...add); }
-  state.settings.rulesRev=2; store.save();
+  if(!Array.isArray(state.rules)||state.settings.rulesRev>=RULES_REV) return;
+  const def=defaultRules();
+  state.rules.forEach(r=>{ if(r.text in RULE_EDITS) r.text=def[RULE_EDITS[r.text]].text; });
+  // add any default rule that isn't there yet, right after the default rule before it (or at the end of its group)
+  RULES_NEW_IN_3.forEach(i=>{
+    const d=def[i]; if(state.rules.some(r=>r.text===d.text)) return;
+    let at=-1; for(let k=i-1;k>=0&&at<0;k--){ if(def[k].group!==d.group) break; at=state.rules.findIndex(r=>r.text===def[k].text); }
+    if(at<0){ const first=state.rules.findIndex(r=>r.group===d.group); if(first>=0){ state.rules.splice(first,0,d); return; } }
+    if(at<0){ const nextGroup=def.slice(i+1).map(x=>x.group).find(g=>g!==d.group&&state.rules.some(r=>r.group===g)); const n=nextGroup?state.rules.findIndex(r=>r.group===nextGroup):-1; if(n<0) state.rules.push(d); else state.rules.splice(n,0,d); return; }
+    state.rules.splice(at+1,0,d);
+  });
+  // the gold-account stop line from the new account-stop rule, only where none is set
+  state.accounts.forEach(a=>{ if(/^gold robots [12]$/i.test(a.name)&&!(Number(a.floor)>0)) a.floor=278; });
+  state.settings.rulesRev=RULES_REV; store.save();
 }
-function robotPnlNative(id){ let t=0, n=0; for(const wk in state.entries){ const v=state.entries[wk][id]; if(v!=null){ t+=Number(v)||0; n++; } } return {t,n}; }
+function robotPnlNative(id){ let t=0, n=0, peak=0, dd=0; Object.keys(state.entries).sort().forEach(wk=>{ const v=state.entries[wk][id]; if(v==null) return; t+=Number(v)||0; n++; if(t>peak) peak=t; if(peak-t>dd) dd=peak-t; }); return {t,n,below:peak-t,dd}; }
 RENDER.rules=function(){
-  if(!Array.isArray(state.rules)){ state.rules=defaultRules(); state.settings.rulesRev=2; }
+  if(!Array.isArray(state.rules)){ state.rules=defaultRules(); state.settings.rulesRev=RULES_REV; }
   const el=$('#rules');
   const acRows=state.accounts.filter(a=>Number(a.floor)>0).map(a=>{
-    const hold=acctHoldNative(a), room=hold-Number(a.floor), k=room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
-    return `<tr><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${a.funded?'funded account':'own money'}</div></td><td class="r">${nativeMoney(a,hold)}</td><td class="r">${nativeMoney(a,a.floor)}</td><td class="r ${cls(room)}">${room>=0?'+':''}${nativeMoney(a,room)}</td><td>${badge(k,k==='over'?'Below the line — switch off':k==='tight'?'Close to the line':'OK')}</td></tr>`; }).join('');
+    const hold=acctHoldNative(a), room=hold-Number(a.floor), empty=!(Number(a.balance)>0)&&!(a.flows||[]).length&&!acctPnlNative(a);
+    const k=empty?'paused':room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
+    return `<tr><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${a.funded?'funded account':'own money'}</div></td><td class="r">${nativeMoney(a,hold)}</td><td class="r">${nativeMoney(a,a.floor)}</td><td class="r ${cls(room)}">${room>=0?'+':''}${nativeMoney(a,room)}</td><td>${badge(k,k==='paused'?'No money in it yet':k==='over'?'Below the line — switch off':k==='tight'?'Close to the line':'OK')}</td></tr>`; }).join('');
   const nm=(a,v)=>a?nativeMoney(a,v):fmtNum(Math.abs(v),2);
   const rbRows=state.robots.filter(r=>Number(r.stopAt)>0).sort((x,y)=>isSlotStage(y.stage)-isSlotStage(x.stage)).map(r=>{
-    const a=acctById(r.accountId), {t,n}=robotPnlNative(r.id), stop=Number(r.stopAt), run=isSlotStage(r.stage);
-    const k=!run?'paused':t<=-stop?'over':t<=-stop/2?'tight':'fits';
-    return `<tr class="click" data-act="openRobot" data-id="${r.id}"><td><div class="name">${dot(r.color)}${esc(r.name)}</div><div class="subl">${a?esc(a.name):'not on an account'} · ${STAGE_LABEL[r.stage]}</div></td><td class="r ${cls(t)}">${n?(t>0?'+':'')+nativeMoney(a,t):'—'}</td><td class="r">−${nm(a,stop)}</td><td class="r">${n} week${n===1?'':'s'}</td><td>${badge(k,k==='paused'?'Not running':k==='over'?'Stop reached — switch it off':k==='tight'?'Halfway to the stop':'OK')}</td></tr>`; }).join('');
+    const a=acctById(r.accountId), {t,n,below}=robotPnlNative(r.id), stop=Number(r.stopAt), run=isSlotStage(r.stage);
+    const k=!run?'paused':below>=stop?'over':below>=stop/2?'tight':'fits';
+    return `<tr class="click" data-act="openRobot" data-id="${r.id}"><td><div class="name">${dot(r.color)}${esc(r.name)}</div><div class="subl">${a?esc(a.name):'not on an account'} · ${STAGE_LABEL[r.stage]}</div></td><td class="r ${cls(t)}">${n?(t>0?'+':'')+nativeMoney(a,t):'—'}</td><td class="r">${n&&below>0?'−'+nativeMoney(a,below):'—'}</td><td class="r">−${nm(a,stop)}</td><td class="r">${n} week${n===1?'':'s'}</td><td>${badge(k,k==='paused'?'Not running':k==='over'?'Stop reached — switch it off':k==='tight'?'Halfway to the stop':'OK')}</td></tr>`; }).join('');
   const groups=[]; state.rules.forEach(r=>{ if(!groups.includes(r.group)) groups.push(r.group); });
   el.innerHTML=`
     <div class="page-head"><div><h1>Rules</h1><p>Your own operating rules. Where a rule is a number the app can measure — an account's stop line, a robot's switch-off line — it is checked against what you log each week.</p></div>
@@ -1474,8 +1505,8 @@ RENDER.rules=function(){
     <div class="grid g-wide" style="margin-bottom:14px">
       <div class="panel"><div class="panel-head"><h3>Account stop lines</h3><span class="hint">balance against the line you set</span></div>
         ${acRows?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Account</th><th class="r">Balance</th><th class="r">Stop line</th><th class="r">Room left</th><th>Check</th></tr></thead><tbody>${acRows}</tbody></table></div>`:`<p class="faint" style="font-size:13px">No stop lines yet. Open an account with Edit and fill in “Stop line” — for example 50,000 on the Yuvi cent account ($500).</p>`}</div>
-      <div class="panel"><div class="panel-head"><h3>Robot switch-off lines</h3><span class="hint">logged result since it started</span></div>
-        ${rbRows?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th class="r">Result so far</th><th class="r">Switch off at</th><th class="r">Logged</th><th>Check</th></tr></thead><tbody>${rbRows}</tbody></table></div>`:`<p class="faint" style="font-size:13px">No switch-off lines yet. Open a robot with Edit and fill in “Switch-off line”.</p>`}</div>
+      <div class="panel"><div class="panel-head"><h3>Robot switch-off lines</h3><span class="hint">how far each robot is below its best logged result</span></div>
+        ${rbRows?`<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Robot</th><th class="r">Result so far</th><th class="r">Below its best</th><th class="r">Switch off at</th><th class="r">Logged</th><th>Check</th></tr></thead><tbody>${rbRows}</tbody></table></div>`:`<p class="faint" style="font-size:13px">No switch-off lines yet. Open a robot with Edit and fill in “Switch-off line”.</p>`}</div>
     </div>
     <p class="note" style="margin-bottom:14px">These checks use the weekly results you log, so they are only as current as your last entry. They don't see open positions or what happened inside the week.</p>
     ${groups.map(g=>`<div class="panel" style="margin-bottom:14px"><div class="panel-head"><h3>${esc(g)}</h3><button class="btn sm ghost" data-act="ruleNew" data-id="${esc(g)}">+ Add rule</button></div>
