@@ -1428,6 +1428,7 @@ function defaultRules(){
   return [
     R('Yuvi','Settings never change while it runs: lot 0.01, the 25% equity stop (a percentage, not a dollar cap — the $300 cap did worse with monthly withdrawals), no bonus on the account.'),
     R('Yuvi','Hours: on Monday at 08:00, off Friday at 15:00 (MT5 server time). No positions over the weekend.'),
+    R('Yuvi','News: on Fed decision days (FOMC) start nothing new from 20:00 until the next morning. The jobs report (first Friday, 15:30) is already covered by the Friday 15:00 stop. A daily stop around 15:30 made results worse in the tests — keep it to the big events.'),
     R('Yuvi','Switch the algo off only when no cycle is open. With positions open and the algo off, nothing manages them.'),
     R('Yuvi','After a 25% stop, off until the next day.'),
     R('Yuvi','Last Friday of the month, once it is flat: withdraw everything above $450.'),
@@ -1463,30 +1464,31 @@ function monthlyRules(){ const R=text=>({id:uid(),group:'Monthly review',text});
 // Earlier default wordings → current ones. Only text still exactly as it was shipped is changed; anything the user wrote is left alone.
 const RULE_EDITS={
   'Settings never change while it runs: lot 0.01, 25% equity stop on, no bonus on the account.':0,
-  'Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.':6,
-  'Last Friday of the month, once it is flat: withdraw everything above $800.':4,
-  'Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.':5,
-  'Refill to $800 only from Yuvi\'s own withdrawn profits. If there isn\'t enough yet, Yuvi stops for good — that caps its loss at about $300.':6,
-  'Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.':8,
-  'Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.':8,
-  'Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).':10,
-  'Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).':9,
-  'Four-week check: a scalper earning less than half its tested average per trade gets switched off.':11,
-  'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':16,
-  'Size every trade on the Lot size page, at a risk per trade decided in advance.':17,
-  'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':21,
-  'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':22,
-  'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':23
+  'Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.':7,
+  'Last Friday of the month, once it is flat: withdraw everything above $800.':5,
+  'Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.':6,
+  'Refill to $800 only from Yuvi\'s own withdrawn profits. If there isn\'t enough yet, Yuvi stops for good — that caps its loss at about $300.':7,
+  'Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.':9,
+  'Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.':9,
+  'Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).':11,
+  'Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).':10,
+  'Four-week check: a scalper earning less than half its tested average per trade gets switched off.':12,
+  'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':17,
+  'Size every trade on the Lot size page, at a risk per trade decided in advance.':18,
+  'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':22,
+  'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':23,
+  'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':24
 };
-const RULES_REV=5;   // 5: Yuvi starts at $450 (≈ €400) instead of $800
+const RULES_REV=6;   // 5: Yuvi starts at $450 (≈ €400) instead of $800 · 6: news rule
 // rules that first appeared in revision 3 — only these are added to an existing list (a default the user changed or deleted is never put back)
-const RULES_NEW_IN_3=[10,15,19,25];
+const RULES_NEW_IN_3=[11,16,20,26];
+const RULES_NEW_IN_6=[2];   // the news rule
 function migrateRules(){
   if(!Array.isArray(state.rules)||state.settings.rulesRev>=RULES_REV) return;
   const def=defaultRules(), prev=Number(state.settings.rulesRev)||0;
   state.rules.forEach(r=>{ if(r.text in RULE_EDITS) r.text=def[RULE_EDITS[r.text]].text; });
-  if(prev<3)   // add any default rule that isn't there yet, right after the default rule before it (or at the end of its group)
-  RULES_NEW_IN_3.forEach(i=>{
+  // add rules that are new since the user's revision, right after the default rule before them (or at the start of their group)
+  [...(prev<3?RULES_NEW_IN_3:[]),...(prev<6?RULES_NEW_IN_6:[])].forEach(i=>{
     const d=def[i]; if(state.rules.some(r=>r.text===d.text)) return;
     let at=-1; for(let k=i-1;k>=0&&at<0;k--){ if(def[k].group!==d.group) break; at=state.rules.findIndex(r=>r.text===def[k].text); }
     if(at<0){ const first=state.rules.findIndex(r=>r.group===d.group); if(first>=0){ state.rules.splice(first,0,d); return; } }
