@@ -1103,7 +1103,7 @@ const packAcct=n=>state.accounts.find(a=>a.name.trim().toLowerCase()===String(n|
 // Merge a pack into what is already there. Nothing existing is replaced: accounts and robots match by name,
 // test runs are skipped if present, a robot is only placed on an account if it isn't on one. dry=true just counts.
 function mergePack(pack,dry){
-  const d={nr:0,nu:0,nf:0,na:0,nm:0,np:0,nl:0}, made={};
+  const d={nr:0,nu:0,nf:0,na:0,nm:0,np:0,nl:0,nx:0}, made={};
   // an account that was created as a placeholder and never used (no money, robots or results)
   const pristine=a=>!(a.flows||[]).length&&!(Number(a.balance)>0)&&!state.robots.some(r=>r.accountId===a.id)&&!Object.values(state.entries).some(e=>('acct:'+a.id) in e);
   (pack.accounts||[]).forEach(pa=>{
@@ -1126,6 +1126,8 @@ function mergePack(pack,dry){
     if(account&&!(r&&acctById(r.accountId))){ const a=packAcct(account), id=a?a.id:made[String(account).trim().toLowerCase()]; if(id){ d.nl++; if(!dry) r.accountId=id; } }
     (runs||[]).forEach(u=>{ if(r&&runsOf(r.id).some(x=>sameRun(x,u))) return; d.nu++; if(!dry) state.runs.push({...u,id:uid(),robotId:r.id,importedAt:todayYmd()}); });
   });
+  // a setup can take a robot back off an account — only while it is still there and hasn't gone live
+  (pack.unplace||[]).forEach(u=>{ const r=packRobot({name:u.robot}), a=packAcct(u.from); if(!r||!a||r.accountId!==a.id||isSlotStage(r.stage)) return; d.nx++; if(!dry) r.accountId=''; });
   if(dry) return d;
   if(pack.settings&&pack.settings.seasonStart&&state.settings.seasonStart===blank().settings.seasonStart) state.settings.seasonStart=pack.settings.seasonStart;
   if(pack.id&&!state.packsDone.includes(pack.id)) state.packsDone.push(pack.id);
@@ -1133,7 +1135,7 @@ function mergePack(pack,dry){
   return {...d,ok:store.save()};
 }
 const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
-const packParts=d=>[d.na?plural(d.na,'account'):'',d.nm?`${plural(d.nm,'placeholder account')} set up`:'',d.np?plural(d.np,'planned deposit'):'',d.nr?plural(d.nr,'robot'):'',d.nu?plural(d.nu,'test run'):'',d.nf?`switch-off lines for ${plural(d.nf,'robot')}`:'',d.nl?`${plural(d.nl,'robot')} placed on an account`:''].filter(Boolean).join(', ');
+const packParts=d=>[d.na?plural(d.na,'account'):'',d.nm?`${plural(d.nm,'placeholder account')} set up`:'',d.np?plural(d.np,'planned deposit'):'',d.nr?plural(d.nr,'robot'):'',d.nu?plural(d.nu,'test run'):'',d.nf?`switch-off lines for ${plural(d.nf,'robot')}`:'',d.nl?`${plural(d.nl,'robot')} placed on an account`:'',d.nx?`${plural(d.nx,'robot')} taken off an account`:''].filter(Boolean).join(', ');
 const packMsg=r=>r.ok?'Added '+(packParts(r)||'nothing new'):'Browser storage is full — not everything was saved';
 // A pack sitting next to the app (served by the launcher) is applied once: straight away if it is marked auto, otherwise offered.
 function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{
