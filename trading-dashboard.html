@@ -1211,7 +1211,7 @@ $('#runSave').onclick=()=>{
 RENDER.accounts=function(){
   const el=$('#accounts');
   const cards=state.accounts.map(a=>{
-    const st=a.status||'running', p=acctPnlUsd(a), gross=acctPnlNative(a), nd=netDepositedNative(a), ndU=nd*fxOf(a), bal=acctBalanceUsd(a), rs=state.robots.filter(r=>r.accountId===a.id&&isSlotStage(r.stage));
+    const st=a.status||'running', p=acctPnlUsd(a), gross=acctPnlNative(a), nd=netDepositedNative(a), ndU=nd*fxOf(a), bal=acctBalanceUsd(a), rs=state.robots.filter(r=>r.accountId===a.id&&isSlotStage(r.stage)); const planned=state.robots.filter(r=>r.accountId===a.id&&r.stage==='backtest');
     const usd=(a.currency||'USD')===BASE;
     return `<div class="card">
       <div class="card-top"><div style="min-width:0"><div class="card-title">${dot(a.color)}<span class="t">${esc(a.name)}</span></div><div class="card-sub">${esc(a.broker||'No broker set')} · ${esc(a.currency||'USD')}${a.funded?' · funded':''}${a.demo?' · demo':''}</div></div>${badge(st,AC_LABEL[st])}</div>
@@ -1226,6 +1226,7 @@ RENDER.accounts=function(){
         <div class="row"><span class="l">Return on deposits</span><span class="r ${cls(p)}">${ndU>0&&p?pct(p/ndU*100):'—'}</span></div>`}
         ${Number(a.floor)>0?`<div class="row"><span class="l">Stop line</span><span class="r ${acctHoldNative(a)<Number(a.floor)?'neg':''}">${nativeMoney(a,a.floor)}</span></div>`:''}
         <div class="row"><span class="l">Robots running</span><span class="r">${rs.length?rs.map(r=>esc(r.name)).join(', '):'none yet'}</span></div>
+        ${planned.length?`<div class="row"><span class="l">Planned</span><span class="r">${planned.map(r=>esc(r.name)).join(', ')}</span></div>`:''}<div style="display:none"></div>
       </div>
       <div class="card-actions"><button class="btn sm" data-act="cycleAcct" data-id="${a.id}">Set status</button><button class="btn sm" data-act="editAcct" data-id="${a.id}">Edit</button><button class="btn sm danger" data-act="delAcct" data-id="${a.id}">Delete</button></div>
     </div>`; }).join('');
@@ -1428,9 +1429,9 @@ function defaultRules(){
     R('Yuvi','Kill line: if the balance falls under $500, switch it off. Below that, lot 0.01 behaves like the 0.02 tests.'),
     R('Yuvi','Refill to $800 only from Yuvi\'s own withdrawn profits. If there isn\'t enough yet, Yuvi stops for good — that caps its loss at about $300.'),
     R('Gold robot accounts','Fixed lot 0.01 per robot. Every risk-percent or auto-lot setting is off; the lot does not grow with the balance.'),
-    R('Gold robot accounts','Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.'),
+    R('Gold robot accounts','Up to four robots per account: two gold robots of different types, plus Trade With Pat on EURUSD and GBPUSD once it is bought. Each robot has its own magic number and the smallest lot; account-wide drawdown switches stay off.'),
     R('Gold robot accounts','Robot stop: switch a robot off once it has fallen twice its worst tested dip below its own best result so far (its switch-off line below).'),
-    R('Gold robot accounts','Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).'),
+    R('Gold robot accounts','Account stop: if a robot account falls 35% below what you put in (€278 on €428), switch every robot on it off and review. That is deeper than its two gold robots ever dipped together in the tests (22–31%).'),
     R('Gold robot accounts','Judge a robot only after 30 trades or two months, whichever comes later — fewer is mostly luck. Earning under half its tested result per trade by then means switch it off.'),
     R('Gold robot accounts','Profits stay in as a cushion for the first three months. No withdrawals and no lot increase until then.'),
     R('Account management','Trading access only, with the account in my own name.'),
@@ -1460,6 +1461,7 @@ const RULE_EDITS={
   'Refill to $800 only from Yuvi\'s own withdrawn profits, never from the other accounts.':6,
   'Two robots per account at most: one slow robot plus one of a different type, each with its own magic number. Account-wide drawdown switches stay off.':8,
   'Start with two robots per account: one slow robot plus one of a different type, each with its own magic number. Add a third only once the account has grown, and lower each robot\'s risk when you do. Account-wide drawdown switches stay off.':8,
+  'Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).':10,
   'Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).':9,
   'Four-week check: a scalper earning less than half its tested average per trade gets switched off.':11,
   'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':16,
@@ -1468,14 +1470,14 @@ const RULE_EDITS={
   'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':22,
   'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':23
 };
-const RULES_REV=3;
+const RULES_REV=4;
 // rules that first appeared in revision 3 — only these are added to an existing list (a default the user changed or deleted is never put back)
 const RULES_NEW_IN_3=[10,15,19,25];
 function migrateRules(){
   if(!Array.isArray(state.rules)||state.settings.rulesRev>=RULES_REV) return;
-  const def=defaultRules();
+  const def=defaultRules(), prev=Number(state.settings.rulesRev)||0;
   state.rules.forEach(r=>{ if(r.text in RULE_EDITS) r.text=def[RULE_EDITS[r.text]].text; });
-  // add any default rule that isn't there yet, right after the default rule before it (or at the end of its group)
+  if(prev<3)   // add any default rule that isn't there yet, right after the default rule before it (or at the end of its group)
   RULES_NEW_IN_3.forEach(i=>{
     const d=def[i]; if(state.rules.some(r=>r.text===d.text)) return;
     let at=-1; for(let k=i-1;k>=0&&at<0;k--){ if(def[k].group!==d.group) break; at=state.rules.findIndex(r=>r.text===def[k].text); }
@@ -1483,8 +1485,8 @@ function migrateRules(){
     if(at<0){ const nextGroup=def.slice(i+1).map(x=>x.group).find(g=>g!==d.group&&state.rules.some(r=>r.group===g)); const n=nextGroup?state.rules.findIndex(r=>r.group===nextGroup):-1; if(n<0) state.rules.push(d); else state.rules.splice(n,0,d); return; }
     state.rules.splice(at+1,0,d);
   });
-  // the gold-account stop line from the new account-stop rule, only where none is set
-  state.accounts.forEach(a=>{ if(/^gold robots [12]$/i.test(a.name)&&!(Number(a.floor)>0)) a.floor=278; });
+  // the gold-account stop line from the account-stop rule, only where none is set
+  if(prev<3) state.accounts.forEach(a=>{ if(/^gold robots [12]$/i.test(a.name)&&!(Number(a.floor)>0)) a.floor=278; });
   state.settings.rulesRev=RULES_REV; store.save();
 }
 function robotPnlNative(id){ let t=0, n=0, peak=0, dd=0; Object.keys(state.entries).sort().forEach(wk=>{ const v=state.entries[wk][id]; if(v==null) return; t+=Number(v)||0; n++; if(t>peak) peak=t; if(peak-t>dd) dd=peak-t; }); return {t,n,below:peak-t,dd}; }
