@@ -379,6 +379,10 @@
       <div class="field"><label id="acBalLabel">Starting balance</label><input type="number" step="any" id="acBalance" placeholder="0"></div>
       <div class="field"><label>Stop line <em>(optional)</em></label><input type="number" min="0" step="any" id="acFloor" placeholder="switch off below this"></div>
     </div>
+    <div class="field-row">
+      <div class="field"><label>Log results from <em>(optional)</em></label><input type="date" id="acFrom" title="Leave empty to start with the season. An earlier date lets you log this account before the season starts."></div>
+      <div class="field" id="acLogWrap"><label>What you log</label><select id="acLogMode"><option value="weekly">The weekly result</option><option value="payouts">Only the payouts</option></select></div>
+    </div>
     <label class="check"><input type="checkbox" id="acDemo"> Demo account — keep its results out of my real totals</label>
     <div class="field"><label>Colour</label><div class="swatches" id="acColors"></div></div>
     <div class="field">
@@ -564,19 +568,31 @@ function migrateBase(){
   const eq=parseFloat(state.lab.equity); if(eq>0) state.lab.equity=String(Math.round(eq*rate));
   state.settings.usdRate=rate; state.settings.base='EUR'; delete state.settings.maxPerAccount; store.save();
 }
-function keyAccount(k){ if(k.startsWith('acct:')) return acctById(k.slice(5)); const r=robotById(k); return r?acctById(r.accountId):null; }
+function keyAccount(k){ if(k.startsWith('acct:')||k.startsWith('pay:')) return acctById(k.slice(k.indexOf(':')+1)); const r=robotById(k); return r?acctById(r.accountId):null; }
 const isRealKey=k=>{ const a=keyAccount(k); return !(a&&a.demo); };
 // a funded (prop-firm) account: only your profit split counts as yours
 const shareOf=a=>a&&a.funded?Math.max(0,Math.min(100,Number(a.split)||0))/100:1;
-const keyUsd=(k,v)=>{ const a=keyAccount(k); return (Number(v)||0)*fxOf(a)*shareOf(a); };
+// a payout is already your share, so it isn't split again
+const keyUsd=(k,v)=>{ const a=keyAccount(k); return (Number(v)||0)*fxOf(a)*(k.startsWith('pay:')?1:shareOf(a)); };
+// a funded account logged by its payouts only: each payout is that week's result
+const payOnly=a=>!!(a&&a.funded&&a.payoutsOnly);
 const isOwnKey=k=>{ const a=keyAccount(k); return !(a&&(a.demo||a.funded)); };
-function keyLabel(k){ if(k.startsWith('acct:')){ const a=acctById(k.slice(5)); return 'Other · '+(a?a.name:'deleted account'); } const r=robotById(k); return r?r.name:'Deleted robot'; }
-function keyColor(k){ if(k.startsWith('acct:')){ const a=acctById(k.slice(5)); return a?a.color:'var(--txt-faint)'; } const r=robotById(k); return r?r.color:'var(--txt-faint)'; }
+function keyLabel(k){ if(k.startsWith('pay:')){ const a=acctById(k.slice(4)); return 'Payout · '+(a?a.name:'deleted account'); } if(k.startsWith('acct:')){ const a=acctById(k.slice(5)); return 'Other · '+(a?a.name:'deleted account'); } const r=robotById(k); return r?r.name:'Deleted robot'; }
+function keyColor(k){ if(k.startsWith('acct:')||k.startsWith('pay:')){ const a=keyAccount(k); return a?a.color:'var(--txt-faint)'; } const r=robotById(k); return r?r.color:'var(--txt-faint)'; }
 
 // The season's first trading week: the Monday of the start date's week (or the next Monday if it starts on a weekend).
 function seasonFirstWeek(){ const d=parseYmd(state.settings.seasonStart), m=mondayOf(d), dow=d.getDay(); return (dow===6||dow===0)?addDays(m,7):m; }
-function seasonWeeks(){ const out=[], cur=mondayOf(new Date()); for(let d=seasonFirstWeek(); d<=cur; d=addDays(d,7)) out.push(ymd(d)); return out; }
-function weekSum(wk,filter){ const e=state.entries[wk]; if(!e) return null; let t=0, any=false; for(const k in e){ if(filter(k)){ t+=keyUsd(k,e[k]); any=true; } } return any?t:null; }
+// an account can be logged before the season: from the week of its own "log results from" date
+const acctFromWeek=a=>a&&a.from?weekKey(parseYmd(a.from)):ymd(seasonFirstWeek());
+function firstLogWeek(){ let m=seasonFirstWeek(); state.accounts.forEach(a=>{ if(a.from){ const d=mondayOf(parseYmd(a.from)); if(d<m) m=d; } }); return m; }
+function seasonWeeks(){ const out=[], cur=mondayOf(new Date()); for(let d=firstLogWeek(); d<=cur; d=addDays(d,7)) out.push(ymd(d)); return out; }
+// the week's logged results plus the payouts of payouts-only accounts dated in it
+function weekRow(wk){
+  const e={...(state.entries[wk]||{})};
+  state.accounts.forEach(a=>{ if(!payOnly(a)) return; let t=0, any=false; (a.flows||[]).forEach(f=>{ if(f.type==='withdrawal'&&f.date&&weekKey(parseYmd(f.date))===wk){ t+=Number(f.amount)||0; any=true; } }); if(any) e['pay:'+a.id]=t; });
+  return Object.keys(e).length?e:null;
+}
+function weekSum(wk,filter){ const e=weekRow(wk); if(!e) return null; let t=0, any=false; for(const k in e){ if(filter(k)){ t+=keyUsd(k,e[k]); any=true; } } return any?t:null; }
 const seriesFor=filter=>seasonWeeks().map(wk=>({wk,v:weekSum(wk,filter)}));
 function statsFrom(ser){
   let cum=0, peak=0, dd=0, gp=0, gl=0; const curve=[], vals=[];
@@ -588,13 +604,13 @@ function statsFrom(ser){
 }
 const acctFilter=a=>k=>{ const x=keyAccount(k); return !!x&&x.id===a.id; };
 function netDepositedNative(a){ let t=Number(a.balance)||0; (a.flows||[]).forEach(f=>{ t+=(f.type==='withdrawal'?-1:1)*(Number(f.amount)||0); }); return t; }
-function acctPnlUsd(a){ let t=0; const f=acctFilter(a); for(const wk in state.entries){ const e=state.entries[wk]; for(const k in e) if(f(k)) t+=keyUsd(k,e[k]); } return t; }
+function acctPnlUsd(a){ let t=payOnly(a)?payoutsNative(a)*fxOf(a):0; const f=acctFilter(a); for(const wk in state.entries){ const e=state.entries[wk]; for(const k in e) if(f(k)) t+=keyUsd(k,e[k]); } return t; }
 function acctPnlNative(a){ let t=0; const f=acctFilter(a); for(const wk in state.entries){ const e=state.entries[wk]; for(const k in e) if(f(k)) t+=Number(e[k])||0; } return t; }
 const payoutsNative=a=>sum((a.flows||[]).filter(f=>f.type==='withdrawal').map(f=>f.amount));
 // own account: deposits + P&L. Funded account: your share of the profit that hasn't been paid out yet.
 const acctBalanceUsd=a=>a.funded?acctPnlUsd(a)-payoutsNative(a)*fxOf(a):netDepositedNative(a)*fxOf(a)+acctPnlUsd(a);
 // what the account itself holds, in its own currency (a payout of your share takes the matching gross profit out of a funded account)
-function acctHoldNative(a){ if(!a.funded) return netDepositedNative(a)+acctPnlNative(a); const sh=shareOf(a); return (Number(a.balance)||0)+acctPnlNative(a)-(sh>0?payoutsNative(a)/sh:0); }
+function acctHoldNative(a){ if(!a.funded) return netDepositedNative(a)+acctPnlNative(a); if(payOnly(a)) return Number(a.balance)||0; const sh=shareOf(a); return (Number(a.balance)||0)+acctPnlNative(a)-(sh>0?payoutsNative(a)/sh:0); }
 const isSlotStage=s=>s==='live'||s==='demo';
 const robotsOn=aid=>state.robots.filter(r=>r.accountId===aid&&isSlotStage(r.stage));
 const nextColor=list=>COLORS.find(c=>!list.some(x=>x.color===c))||COLORS[list.length%COLORS.length];
@@ -1220,9 +1236,12 @@ RENDER.accounts=function(){
     const usd=(a.currency||'USD')===BASE;
     return `<div class="card">
       <div class="card-top"><div style="min-width:0"><div class="card-title">${dot(a.color)}<span class="t">${esc(a.name)}</span></div><div class="card-sub">${esc(a.broker||'No broker set')} · ${esc(a.currency||'USD')}${a.funded?' · funded':''}${a.demo?' · demo':''}</div></div>${badge(st,AC_LABEL[st])}</div>
-      <div><div class="faint" style="font-size:11.5px;font-weight:600">${a.funded?'Your unpaid share':'Balance'}</div><div style="font-size:26px;font-weight:720;letter-spacing:-.02em">${money(bal)}</div></div>
+      <div><div class="faint" style="font-size:11.5px;font-weight:600">${payOnly(a)?'Paid out to you':a.funded?'Your unpaid share':'Balance'}</div><div style="font-size:26px;font-weight:720;letter-spacing:-.02em">${money(payOnly(a)?p:bal)}</div></div>
       <div class="rows">
-        ${a.funded?`<div class="row"><span class="l">Funded account size</span><span class="r">${nativeMoney(a,a.balance)}</span></div>
+        ${payOnly(a)?`<div class="row"><span class="l">Funded account size</span><span class="r">${nativeMoney(a,a.balance)}</span></div>
+        <div class="row"><span class="l">Logged by</span><span class="r">payouts only</span></div>
+        <div class="row"><span class="l">Payouts received</span><span class="r">${(a.flows||[]).filter(f=>f.type==='withdrawal').length}</span></div>`
+        :a.funded?`<div class="row"><span class="l">Funded account size</span><span class="r">${nativeMoney(a,a.balance)}</span></div>
         <div class="row"><span class="l">Profit on the account</span><span class="r ${cls(gross)}">${gross?(gross>0?'+':'')+nativeMoney(a,gross):'—'}</span></div>
         <div class="row"><span class="l">Your ${Math.round(shareOf(a)*100)}% share</span><span class="r ${cls(p)}">${p?signed(p):'—'}</span></div>
         <div class="row"><span class="l">Payouts received</span><span class="r">${nativeMoney(a,payoutsNative(a))}</span></div>`
@@ -1230,6 +1249,7 @@ RENDER.accounts=function(){
         <div class="row"><span class="l">Net deposited</span><span class="r">${money(ndU)}${usd?'':` <span class="faint">(${nativeMoney(a,nd)})</span>`}</span></div>
         <div class="row"><span class="l">Return on deposits</span><span class="r ${cls(p)}">${ndU>0&&p?pct(p/ndU*100):'—'}</span></div>`}
         ${Number(a.floor)>0?`<div class="row"><span class="l">Stop line</span><span class="r ${acctHoldNative(a)<Number(a.floor)?'neg':''}">${nativeMoney(a,a.floor)}</span></div>`:''}
+        ${a.from&&a.from<state.settings.seasonStart?`<div class="row"><span class="l">Logged from</span><span class="r">${dLong(a.from)}</span></div>`:''}
         <div class="row"><span class="l">Robots running</span><span class="r">${rs.length?rs.map(r=>esc(r.name)).join(', '):'none yet'}</span></div>
         ${planned.length?`<div class="row"><span class="l">Planned</span><span class="r">${planned.map(r=>esc(r.name)).join(', ')}</span></div>`:''}<div style="display:none"></div>
       </div>
@@ -1256,12 +1276,12 @@ function openAcctModal(a){
   $('#acTitle').textContent=a?'Edit account':'New account';
   $('#acId').value=a?a.id:''; $('#acName').value=a?a.name:''; $('#acBroker').value=a?a.broker||'':''; $('#acStatus').value=a?a.status||'running':'waiting';
   $('#acCur').value=a?a.currency||'USD':BASE; $('#acFx').value=a?fxOf(a):1; $('#acBalance').value=a&&a.balance?a.balance:''; $('#acDemo').checked=!!(a&&a.demo);
-  $('#acKind').value=a&&a.funded?'funded':'own'; $('#acSplit').value=a&&a.split!=null&&a.split!==''?a.split:80; $('#acFloor').value=a&&a.floor?a.floor:''; paintAcKind();
+  $('#acKind').value=a&&a.funded?'funded':'own'; $('#acSplit').value=a&&a.split!=null&&a.split!==''?a.split:80; $('#acFloor').value=a&&a.floor?a.floor:''; $('#acFrom').value=a&&a.from||''; $('#acLogMode').value=a&&a.payoutsOnly?'payouts':'weekly'; paintAcKind();
   acColor=a?a.color:nextColor(state.accounts); paintSwatches($('#acColors'),acColor,c=>acColor=c);
   modalFlows=a?(a.flows||[]).map(f=>({...f})):[]; $('#flowAmount').value=''; $('#flowType').value='deposit'; $('#flowDate').value=todayYmd(); paintFlows();
   openOverlay('acctOverlay'); setTimeout(()=>$('#acName').focus(),40);
 }
-function paintAcKind(){ const f=$('#acKind').value==='funded'; $('#acSplitWrap').style.visibility=f?'visible':'hidden'; $('#acBalLabel').textContent=f?'Funded account size':'Starting balance'; $('#flowsLbl').textContent=f?'Payouts received (add as withdrawals)':'Deposits & withdrawals'; if(f&&!modalFlows.length) $('#flowType').value='withdrawal'; }
+function paintAcKind(){ const f=$('#acKind').value==='funded'; $('#acSplitWrap').style.visibility=f?'visible':'hidden'; $('#acLogWrap').style.visibility=f?'visible':'hidden'; $('#acBalLabel').textContent=f?'Funded account size':'Starting balance'; $('#flowsLbl').textContent=f?'Payouts received (add as withdrawals)':'Deposits & withdrawals'; if(f&&!modalFlows.length) $('#flowType').value='withdrawal'; }
 $('#acKind').onchange=paintAcKind;
 $('#acCur').onchange=()=>{ const c=$('#acCur').value; if(c==='EUR') $('#acFx').value=1; else if(c==='USD') $('#acFx').value=usdRate(); else if(c==='USC') $('#acFx').value=Math.round(usdRate()*100)/10000; else { $('#acFx').value=''; $('#acFx').focus(); toast(`Enter today's ${c}→EUR rate so totals add up`,'warn'); } paintFlows(); };
 function paintFlows(){
@@ -1278,7 +1298,7 @@ $('#acSave').onclick=()=>{
   if(!name){ $('#acName').focus(); return toast('Give the account a name','warn'); }
   if(!(fx>0)){ $('#acFx').focus(); return toast('Enter how many euros one unit of this currency is worth','warn'); }
   takePendingFlow();   // an amount typed but not yet added still counts
-  const data={name,broker:$('#acBroker').value.trim(),status:$('#acStatus').value,currency:$('#acCur').value,fx,balance:parseFloat($('#acBalance').value)||0,demo:$('#acDemo').checked,funded:$('#acKind').value==='funded',split:(v=>isFinite(v)?v:80)(parseFloat($('#acSplit').value)),floor:parseFloat($('#acFloor').value)||'',color:acColor,flows:modalFlows.map(f=>({...f}))};
+  const data={name,broker:$('#acBroker').value.trim(),status:$('#acStatus').value,currency:$('#acCur').value,fx,balance:parseFloat($('#acBalance').value)||0,demo:$('#acDemo').checked,funded:$('#acKind').value==='funded',split:(v=>isFinite(v)?v:80)(parseFloat($('#acSplit').value)),floor:parseFloat($('#acFloor').value)||'',from:$('#acFrom').value||'',payoutsOnly:$('#acKind').value==='funded'&&$('#acLogMode').value==='payouts',color:acColor,flows:modalFlows.map(f=>({...f}))};
   if(id) Object.assign(acctById(id),data); else state.accounts.push({id:uid(),...data});
   store.save(); closeOverlay('acctOverlay'); render(); toast(id?'Account updated':`Added "${name}"`);
 };
@@ -1301,7 +1321,7 @@ RENDER.calendar=function(){
   let rows='', lastMonth='';
   [...ser].reverse().forEach(p=>{
     const mo=p.wk.slice(0,7); if(mo!==lastMonth){ lastMonth=mo; rows+=`<div class="month-lbl">${MONTHS[+mo.slice(5)-1].toUpperCase()} ${mo.slice(0,4)}</div>`; }
-    const e=state.entries[p.wk]||{}, keys=Object.keys(e).filter(f), note=state.notes[p.wk];
+    const e=weekRow(p.wk)||{}, keys=Object.keys(e).filter(f), note=state.notes[p.wk];
     const chips=keys.slice(0,5).map(k=>{ const v=keyUsd(k,e[k]); return `<span class="chip">${dot(keyColor(k))}${esc(keyLabel(k))} <b class="${cls(v)}" style="font-weight:650">${signed(v)}</b></span>`; }).join('')+(keys.length>5?`<span class="chip">+${keys.length-5} more</span>`:'');
     rows+=`<button class="week ${p.wk===cur?'cur':''}" data-act="openWeek" data-id="${p.wk}">
       <div class="when">${weekRange(p.wk)}<small>${p.wk===cur?'This week':parseYmd(p.wk).getFullYear()}</small></div>
@@ -1322,18 +1342,23 @@ function openWeek(wk){
   $('#wkTitle').textContent=`Week of ${weekRange(wk)} ${addDays(parseYmd(wk),6).getFullYear()}`;
   const row=(key,label,color,a)=>`<div class="wk-row"><div class="n">${dot(color)}${esc(label)}</div><input type="number" step="any" data-key="${key}" value="${e[key]??''}" placeholder="0.00" aria-label="${esc(label)} P&L"><span class="cur">${esc(a&&a.currency||BASE)}</span></div>`;
   let html='';
+  const pays=weekRow(wk)||{}, inSeason=wk>=ymd(seasonFirstWeek());
   state.accounts.forEach(a=>{
-    const rs=state.robots.filter(r=>r.accountId===a.id&&(isSlotStage(r.stage)||e[r.id]!=null));
-    html+=`<div class="wk-acct">${dot(a.color)}${esc(a.name)}${a.demo?' · demo (not in totals)':''}${a.funded?` · funded, counted at your ${Math.round(shareOf(a)*100)}% share`:''}${a.currency==='USC'?' · enter cents':''}</div>`+rs.map(r=>row(r.id,r.name,r.color,a)).join('')+row('acct:'+a.id,rs.length?'Other / manual trades':'Account P&L',a.color,a);
+    const has=k=>e[k]!=null, po=payOnly(a);
+    const rs=state.robots.filter(r=>r.accountId===a.id&&(has(r.id)||(!po&&isSlotStage(r.stage))));
+    const showOwn=has('acct:'+a.id)||!po;
+    if(wk<acctFromWeek(a)&&!rs.some(r=>has(r.id))&&!has('acct:'+a.id)&&!('pay:'+a.id in pays)) return;   // not logged that early
+    html+=`<div class="wk-acct">${dot(a.color)}${esc(a.name)}${a.demo?' · demo (not in totals)':''}${a.funded&&!po?` · funded, counted at your ${Math.round(shareOf(a)*100)}% share`:''}${a.currency==='USC'?' · enter cents':''}</div>`+rs.map(r=>row(r.id,r.name,r.color,a)).join('')+(showOwn?row('acct:'+a.id,rs.length?'Other / manual trades':'Account P&L',a.color,a):'')
+      +(po?`<div class="wk-row" title="Payouts only: add each one under Accounts → Edit as a withdrawal"><div class="n faint">Payouts this week <em>(add them in Accounts)</em></div><span class="cur ${cls(pays['pay:'+a.id])}" style="white-space:nowrap">${'pay:'+a.id in pays?'+'+nativeMoney(a,pays['pay:'+a.id]):'none this week'}</span></div>`:'');
   });
-  const orphans=state.robots.filter(r=>!acctById(r.accountId)&&(isSlotStage(r.stage)||e[r.id]!=null));
+  const orphans=state.robots.filter(r=>!acctById(r.accountId)&&(e[r.id]!=null||(inSeason&&isSlotStage(r.stage))));
   if(orphans.length) html+=`<div class="wk-acct">Not on an account</div>`+orphans.map(r=>row(r.id,r.name,r.color,null)).join('');
   $('#wkRows').innerHTML=html||`<p class="note">Add an account first — then each robot running on it gets a line here.</p>`;
   $('#wkNote').value=note.text||''; $('#wkTags').value=(note.tags||[]).join(', ');
   $$('#wkRows input').forEach(i=>i.oninput=paintWeekTotal); paintWeekTotal();
   openOverlay('weekOverlay'); const first=$('#wkRows input'); if(first) setTimeout(()=>first.focus(),40);
 }
-function paintWeekTotal(){ let t=0; $$('#wkRows input').forEach(i=>{ const v=parseFloat(i.value); if(isFinite(v)&&isRealKey(i.dataset.key)) t+=keyUsd(i.dataset.key,v); }); const el=$('#wkTotal'); el.textContent=signed(t); el.className=cls(t); }
+function paintWeekTotal(){ let t=0; const pays=weekRow(curWeek)||{}; for(const k in pays) if(k.startsWith('pay:')&&isRealKey(k)) t+=keyUsd(k,pays[k]); $$('#wkRows input').forEach(i=>{ const v=parseFloat(i.value); if(isFinite(v)&&isRealKey(i.dataset.key)) t+=keyUsd(i.dataset.key,v); }); const el=$('#wkTotal'); el.textContent=signed(t); el.className=cls(t); }
 $('#wkSave').onclick=()=>{
   const e={}; $$('#wkRows input').forEach(i=>{ const v=parseFloat(i.value); if(i.value.trim()!==''&&isFinite(v)) e[i.dataset.key]=v; });
   if(Object.keys(e).length) state.entries[curWeek]=e; else delete state.entries[curWeek];
@@ -1447,7 +1472,7 @@ function defaultRules(){
     R('FTMO funded account','Risk at most 1% per trade, sized on the Lot size page, so it takes five losing trades to reach the daily limit.'),
     R('FTMO funded account','Stop trading for the day at half the daily loss limit.'),
     R('FTMO funded account','Before connecting a signal copier, check FTMO\'s terms: copying other people\'s trades, news trading and holding over the weekend are restricted on some account types.'),
-    R('FTMO funded account','Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.'),
+    R('FTMO funded account','Log only the payouts: record each one on the account as a withdrawal (Accounts → Edit). It counts as your profit in the week it is paid.'),
     ...monthlyRules(),
     R('All accounts','Once a day: open the VPS and check every terminal is connected, AutoTrading is on and the Journal shows no errors.'),
     R('All accounts','Changes only at the weekend, one at a time, with a note in that week\'s log.'),
@@ -1477,9 +1502,10 @@ const RULE_EDITS={
   'Size every trade on the Lot size page, at a risk per trade decided in advance.':18,
   'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':22,
   'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':23,
+  'Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.':21,
   'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':24
 };
-const RULES_REV=6;   // 5: Yuvi starts at $450 (≈ €400) instead of $800 · 6: news rule
+const RULES_REV=7;   // 5: Yuvi starts at $450 (≈ €400) instead of $800 · 6: news rule · 7: FTMO logged by payouts only
 // rules that first appeared in revision 3 — only these are added to an existing list (a default the user changed or deleted is never put back)
 const RULES_NEW_IN_3=[11,16,20,26];
 const RULES_NEW_IN_6=[2];   // the news rule
@@ -1505,8 +1531,8 @@ RENDER.rules=function(){
   const el=$('#rules');
   const acRows=state.accounts.filter(a=>Number(a.floor)>0).map(a=>{
     const hold=acctHoldNative(a), room=hold-Number(a.floor), empty=!(Number(a.balance)>0)&&!(a.flows||[]).length&&!acctPnlNative(a);
-    const k=empty?'paused':room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
-    return `<tr><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${a.funded?'funded account':'own money'}</div></td><td class="r">${nativeMoney(a,hold)}</td><td class="r">${nativeMoney(a,a.floor)}</td><td class="r ${cls(room)}">${room>=0?'+':''}${nativeMoney(a,room)}</td><td>${badge(k,k==='paused'?'No money in it yet':k==='over'?'Below the line — switch off':k==='tight'?'Close to the line':'OK')}</td></tr>`; }).join('');
+    const k=empty||payOnly(a)?'paused':room<0?'over':room<Number(a.floor)*0.1?'tight':'fits';
+    return `<tr><td><div class="name">${dot(a.color)}${esc(a.name)}</div><div class="subl">${a.funded?'funded account':'own money'}</div></td><td class="r">${nativeMoney(a,hold)}</td><td class="r">${nativeMoney(a,a.floor)}</td><td class="r ${cls(room)}">${room>=0?'+':''}${nativeMoney(a,room)}</td><td>${badge(k,payOnly(a)?'Payouts only — check it on FTMO':k==='paused'?'No money in it yet':k==='over'?'Below the line — switch off':k==='tight'?'Close to the line':'OK')}</td></tr>`; }).join('');
   const nm=(a,v)=>a?nativeMoney(a,v):fmtNum(Math.abs(v),2);
   const rbRows=state.robots.filter(r=>Number(r.stopAt)>0).sort((x,y)=>isSlotStage(y.stage)-isSlotStage(x.stage)).map(r=>{
     const a=acctById(r.accountId), {t,n,below}=robotPnlNative(r.id), stop=Number(r.stopAt), run=isSlotStage(r.stage);
