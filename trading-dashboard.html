@@ -582,9 +582,14 @@ function keyColor(k){ if(k.startsWith('acct:')||k.startsWith('pay:')){ const a=k
 
 // The season's first trading week: the Monday of the start date's week (or the next Monday if it starts on a weekend).
 function seasonFirstWeek(){ const d=parseYmd(state.settings.seasonStart), m=mondayOf(d), dow=d.getDay(); return (dow===6||dow===0)?addDays(m,7):m; }
-// an account can be logged before the season: from the week of its own "log results from" date
-const acctFromWeek=a=>a&&a.from?weekKey(parseYmd(a.from)):ymd(seasonFirstWeek());
-function firstLogWeek(){ let m=seasonFirstWeek(); state.accounts.forEach(a=>{ if(a.from){ const d=mondayOf(parseYmd(a.from)); if(d<m) m=d; } }); return m; }
+// Before the season, the current week can always be logged; a week logged early stays in the calendar afterwards.
+function firstLogWeek(){
+  let m=seasonFirstWeek(); const now=mondayOf(new Date()), early=d=>{ if(d<m) m=d; };
+  if(now<m) early(now);
+  state.accounts.forEach(a=>{ if(a.from) early(mondayOf(parseYmd(a.from))); if(payOnly(a)) (a.flows||[]).forEach(f=>{ if(f.type==='withdrawal'&&f.date) early(mondayOf(parseYmd(f.date))); }); });
+  Object.keys(state.entries).forEach(wk=>early(parseYmd(wk)));
+  return m;
+}
 function seasonWeeks(){ const out=[], cur=mondayOf(new Date()); for(let d=firstLogWeek(); d<=cur; d=addDays(d,7)) out.push(ymd(d)); return out; }
 // the week's logged results plus the payouts of payouts-only accounts dated in it
 function weekRow(wk){
@@ -1343,11 +1348,11 @@ function openWeek(wk){
   const row=(key,label,color,a)=>`<div class="wk-row"><div class="n">${dot(color)}${esc(label)}</div><input type="number" step="any" data-key="${key}" value="${e[key]??''}" placeholder="0.00" aria-label="${esc(label)} P&L"><span class="cur">${esc(a&&a.currency||BASE)}</span></div>`;
   let html='';
   const pays=weekRow(wk)||{}, inSeason=wk>=ymd(seasonFirstWeek());
+  $('#wkSub').textContent=inSeason?'Enter each robot\'s result for the week':'Before the season — fill in only the accounts already trading, leave the rest empty';
   state.accounts.forEach(a=>{
     const has=k=>e[k]!=null, po=payOnly(a);
     const rs=state.robots.filter(r=>r.accountId===a.id&&(has(r.id)||(!po&&isSlotStage(r.stage))));
     const showOwn=has('acct:'+a.id)||!po;
-    if(wk<acctFromWeek(a)&&!rs.some(r=>has(r.id))&&!has('acct:'+a.id)&&!('pay:'+a.id in pays)) return;   // not logged that early
     html+=`<div class="wk-acct">${dot(a.color)}${esc(a.name)}${a.demo?' · demo (not in totals)':''}${a.funded&&!po?` · funded, counted at your ${Math.round(shareOf(a)*100)}% share`:''}${a.currency==='USC'?' · enter cents':''}</div>`+rs.map(r=>row(r.id,r.name,r.color,a)).join('')+(showOwn?row('acct:'+a.id,rs.length?'Other / manual trades':'Account P&L',a.color,a):'')
       +(po?`<div class="wk-row" title="Payouts only: add each one under Accounts → Edit as a withdrawal"><div class="n faint">Payouts this week <em>(add them in Accounts)</em></div><span class="cur ${cls(pays['pay:'+a.id])}" style="white-space:nowrap">${'pay:'+a.id in pays?'+'+nativeMoney(a,pays['pay:'+a.id]):'none this week'}</span></div>`:'');
   });
