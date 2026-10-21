@@ -277,6 +277,26 @@
     .week .mid{flex-basis:100%;order:3}
     .field-row.three{grid-template-columns:1fr 1fr}
   }
+  /* ---------- manual trading ---------- */
+  .mt-grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (max-width:1180px){.mt-grid{grid-template-columns:minmax(0,1fr)}}
+  .mt-cell{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .mt-chart{height:400px;background:var(--bg)}
+  .mt-plan{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line-soft)}
+  .mt-head{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+  .mt-steps{display:flex;gap:5px}
+  .mt-steps span{font-size:11px;font-weight:650;padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--txt-faint)}
+  .mt-steps span.ok{color:var(--pos);background:var(--pos-soft);border-color:rgba(47,191,125,.3)}
+  .mt-steps span.bad{color:var(--neg);background:var(--neg-soft);border-color:rgba(240,96,95,.3)}
+  .mt-f{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  .mt-f label,.mt-note{font-size:11px;color:var(--txt-faint);font-weight:600;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .mt-f input,.mt-f select,.mt-note textarea{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;width:100%;min-width:0;font-size:13px}
+  .mt-note textarea{resize:vertical}
+  .mt-f input:focus,.mt-f select:focus,.mt-note textarea:focus{outline:none;border-color:var(--accent)}
+  .mt-ro{padding:6px 2px;font-size:13px;color:var(--txt)}
+  .mt-sum{cursor:pointer;font-weight:680;font-size:14.5px}
+  .mt-rules{margin:12px 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--txt-dim);font-size:13px}
+  @media (max-width:600px){.mt-chart{height:320px}}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
@@ -303,6 +323,7 @@
     <section id="deposits" class="view"></section>
     <section id="rules" class="view"></section>
     <section id="lots" class="view"></section>
+    <section id="manual" class="view"></section>
     <section id="chart" class="view"></section>
     <section id="settings" class="view"></section>
   </main>
@@ -523,7 +544,7 @@ const AC_STATUS=['running','waiting','paused'], AC_LABEL={running:'Active',waiti
 const SRC_LABEL={tester:'Backtest',forward:'Forward test',history:'Live history'};
 
 function blank(){ return {v:2,settings:{seasonStart:'2026-11-01',base:'EUR',usdRate:0.8945,tvSymbol:'OANDA:XAUUSD',tvInterval:'15'},accounts:[],robots:[],runs:[],entries:{},notes:{},plans:[],lab:{equity:'',limit:30,picks:{}},
-  packsDone:[],instruments:defaultInstruments(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
+  packsDone:[],instruments:defaultInstruments(),manual:defaultManual(),calc:{accountId:'',balance:'',mode:'pct',pct:'1',amount:'',instId:'xauusd',entry:'',sl:'',tps:[{p:'',pct:100}]}}; }
 const store={
   ok:true, warned:false,
   load(){
@@ -531,7 +552,7 @@ const store={
       const d=JSON.parse(localStorage.getItem(KEY)||'null'); if(!d) return blank();
       this.legacyUsd=!(d.settings&&d.settings.base);   // saved before the app switched from dollars to euros
       const b=blank();
-      return {...b,...d,settings:{...b.settings,...(d.settings||{})},lab:{...b.lab,...(d.lab||{})},calc:{...b.calc,...(d.calc||{})}};
+      return {...b,...d,settings:{...b.settings,...(d.settings||{})},lab:{...b.lab,...(d.lab||{})},calc:{...b.calc,...(d.calc||{})},manual:{...b.manual,...(d.manual||{})}};
     }catch(e){ this.ok=false; return blank(); }
   },
   save(){
@@ -882,11 +903,12 @@ const ICON={
   coin:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.1 1.1-1.8 2.5-1.8s2.5.6 2.5 1.7-1.1 1.6-2.5 1.6-2.5.7-2.5 1.7 1.1 1.8 2.5 1.8 2.5-.7 2.5-1.7"/>',
   chart:'<path d="M7 4v4M7 16v4M17 3v3M17 14v6"/><rect x="5" y="8" width="4" height="8" rx="1"/><rect x="15" y="6" width="4" height="8" rx="1"/>',
   gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   calc:'<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7.5h7M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 16h.01M12 16h.01M15.5 16h.01"/>',
   plus:'<path d="M12 5v14M5 12h14"/>', up:'<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>', down:'<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>', back:'<path d="M15 6l-6 6 6 6"/>'
 };
 const ico=n=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[n]}</svg>`;
-const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],['rules','Rules','shield'],'sep',['lots','Lot size','calc'],['chart','Chart','chart'],['settings','Settings','gear']];
+const NAV=[['overview','Overview','grid'],['robots','Robots','bot'],['accounts','Accounts','card'],['calendar','Calendar','cal'],['lab','Combine','layers'],['deposits','Deposits','coin'],['rules','Rules','shield'],'sep',['manual','Manual trading','target'],['lots','Lot size','calc'],['chart','Chart','chart'],['settings','Settings','gear']];
 const RENDER={}, ACT={}, CHG={};
 let curView='overview';
 function buildNav(){ $('#nav').innerHTML=NAV.map(n=>n==='sep'?'<div class="sep"></div>':`<button data-view="${n[0]}">${ico(n[2])}<span>${n[1]}</span><span class="cnt" id="cnt-${n[0]}"></span></button>`).join(''); }
@@ -1805,6 +1827,180 @@ $('#inSave').onclick=()=>{
 $('#inDelete').onclick=()=>{ const i=instById($('#inId').value); if(!i||!confirm(`Remove ${i.name} from your instrument list?`)) return; state.instruments=state.instruments.filter(x=>x.id!==i.id); store.save(); closeOverlay('instOverlay'); render(); toast(`Removed ${i.name}`,'del'); };
 
 /* ============================================================
+   MANUAL — opening range strategies traded by hand (London, New York).
+   One live chart per market with that day's plan under it, the rules,
+   and a journal. Plans can be pasted in from a Claude session.
+   ============================================================ */
+function defaultManual(){
+  // Trade with Pat's 5-minute opening range strategy, as David trades it (Oct 2026)
+  const rules=[
+    'Before the open: mark the higher time frame trend and levels (Daily, H4, H1) and check the news.',
+    'Step 1, range: wait for the first 15-minute candle to close. Its high and low are the range.',
+    'Step 2, break and close: a 5-minute candle must close outside the range. That sets the direction. Never enter on the break candle.',
+    'Step 3, common sense level: enter only on a pullback into a flip zone or a demand/supply zone, in the direction of the break.',
+    'Stop beyond the range or the level. Target the recent high/low or the next flip zone. Half off at the first target, stop to break even.',
+    'No trade: no close outside the range, both sides broken, level too far, news within 30 minutes, or the daily loss limit is hit.'
+  ];
+  const s=(name,tv)=>({name,tv});
+  return {cur:'london',interval:'5',days:{},strategies:[
+    {id:'london',name:'London Open',tz:'Europe/London',open:'08:00',rangeMin:15,maxTrades:2,rules:rules.slice(),
+      symbols:[s('GER40','OANDA:DE30EUR'),s('UK100','OANDA:UK100GBP'),s('GBPUSD','OANDA:GBPUSD'),s('EURUSD','OANDA:EURUSD')]},
+    {id:'ny',name:'New York Open',tz:'America/New_York',open:'09:30',rangeMin:15,maxTrades:2,rules:rules.slice(),
+      symbols:[s('NAS100','OANDA:NAS100USD'),s('US30','OANDA:US30USD'),s('XAUUSD','OANDA:XAUUSD'),s('USDJPY','OANDA:USDJPY')]}
+  ]};
+}
+const MT_INTS=[['1','1m'],['5','5m'],['15','15m'],['60','1h'],['240','4h'],['D','1D']];
+const MT_STATUS=[['watch','Watching'],['wait','Waiting for pullback'],['in','In trade'],['skip','No trade'],['closed','Closed']];
+const MT_STATUS_LABEL=Object.fromEntries(MT_STATUS);
+const mtStrat=()=>{ const m=state.manual; return m.strategies.find(s=>s.id===m.cur)||m.strategies[0]; };
+const mtKey=(date,id)=>date+'|'+id;
+function mtDay(date,id,create){ const k=mtKey(date,id), d=state.manual.days; if(!d[k]&&create) d[k]={plan:'',review:'',followed:'',syms:{}}; return d[k]; }
+function mtSym(day,name){ if(!day.syms[name]) day.syms[name]={}; return day.syms[name]; }
+const mtNum=v=>v===''||v==null||!isFinite(Number(v))?null:Number(v);
+// decimals to show for a price, from how it was typed
+const mtDp=(...v)=>Math.min(5,Math.max(0,...v.map(x=>{ const s=String(x??''); return s.includes('.')?s.split('.')[1].length:0; })));
+
+/* --- time zones: when does today's range candle start, in this browser's time --- */
+function tzParts(date,tz){ const o={}; new Intl.DateTimeFormat('en-US',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',weekday:'short'}).formatToParts(date).forEach(p=>o[p.type]=p.value); return o; }
+function zonedDate(ymdStr,hhmm,tz){
+  const [y,m,d]=ymdStr.split('-').map(Number), [h,mi]=hhmm.split(':').map(Number), guess=Date.UTC(y,m-1,d,h,mi), o=tzParts(new Date(guess),tz);
+  return new Date(guess-(Date.UTC(+o.year,+o.month-1,+o.day,+o.hour%24,+o.minute)-guess));
+}
+const hm=d=>pad(d.getHours())+':'+pad(d.getMinutes());
+function mtSession(st){
+  const now=new Date(), o=tzParts(now,st.tz), day=`${o.year}-${o.month}-${o.day}`;
+  const start=zonedDate(day,st.open,st.tz), end=new Date(start.getTime()+st.rangeMin*6e4), weekend=o.weekday==='Sat'||o.weekday==='Sun';
+  let phase, text;
+  const mins=Math.round((start-now)/6e4);
+  if(weekend){ phase='off'; text='Weekend: markets are closed.'; }
+  else if(now<start){ phase='before'; text=`Range candle starts in ${mins>=60?Math.floor(mins/60)+'h ':''}${mins%60}m. Do the higher time frame read now.`; }
+  else if(now<end){ phase='range'; text='The range candle is forming. Wait for it to close.'; }
+  else if(now-end<3*36e5){ phase='live'; text='Range is set. Waiting for a 5-minute close outside it, then a pullback to a level.'; }
+  else { phase='done'; text='Session over. Fill in the results and the review below.'; }
+  return {start,end,phase,text};
+}
+
+/* --- one market's plan card --- */
+function mtSteps(p){
+  const s1=mtNum(p.high)!=null&&mtNum(p.low)!=null, s2=p.brk==='up'||p.brk==='down', s3=s2&&mtNum(p.entry)!=null&&!!(p.level||'').trim();
+  return `<div class="mt-steps"><span class="${s1?'ok':''}">1 Range</span><span class="${s2?'ok':p.brk==='both'?'bad':''}">2 Break</span><span class="${s3?'ok':''}">3 Level</span></div>`;
+}
+function mtPlanHtml(st,day,sym,i){
+  const p=(day&&day.syms[sym.name])||{}, f=(k,label,ph)=>`<label>${label}<input class="num" data-inp="mt" data-chg="mt" data-sym="${esc(sym.name)}" data-k="${k}" value="${esc(p[k]??'')}" placeholder="${ph||''}" inputmode="decimal"></label>`;
+  const sel=(k,label,opts)=>`<label>${label}<select data-chg="mt" data-sym="${esc(sym.name)}" data-k="${k}">${opts.map(([v,l])=>`<option value="${v}" ${(p[k]||'')===v?'selected':''}>${l}</option>`).join('')}</select></label>`;
+  const hi=mtNum(p.high), lo=mtNum(p.low), en=mtNum(p.entry), sl=mtNum(p.sl), tp=mtNum(p.tp), dp=mtDp(p.high,p.low,p.entry);
+  const size=hi!=null&&lo!=null?fmtNum(Math.abs(hi-lo),dp):'—';
+  const rr=en!=null&&sl!=null&&tp!=null&&en!==sl?(Math.abs(tp-en)/Math.abs(en-sl)).toFixed(1)+'R':'—';
+  const dirOk=!p.bias||!p.brk||p.brk==='both'||(p.bias==='buy')===(p.brk==='up');
+  return `<div class="mt-head"><div style="display:flex;gap:8px;align-items:center"><b>${esc(sym.name)}</b>${p.status?badge(p.status==='in'?'live':p.status==='skip'?'':p.status==='closed'?'backtest':'waiting',MT_STATUS_LABEL[p.status]):''}</div>${mtSteps(p)}</div>
+    <div class="mt-f">${sel('bias','HTF bias',[['','—'],['buy','Buy'],['sell','Sell']])}${sel('brk','Break & close',[['','Not yet'],['up','Up'],['down','Down'],['both','Both sides (chop)']])}${sel('status','Status',[['','—'],...MT_STATUS])}</div>
+    <div class="mt-f">${f('high','Range high')}${f('low','Range low')}<label>Range size<div class="mt-ro num">${size}</div></label></div>
+    <div class="mt-f"><label style="grid-column:span 3">Level to enter from <input data-inp="mt" data-chg="mt" data-sym="${esc(sym.name)}" data-k="level" value="${esc(p.level||'')}" placeholder="e.g. 2412–2414 flip zone"></label></div>
+    <div class="mt-f">${f('entry','Entry')}${f('sl','Stop')}${f('tp','Target')}</div>
+    <div class="mt-f"><label>R:R<div class="mt-ro num">${rr}</div></label>${f('r','Result (R)','e.g. 1.5 or -1')}<label>&nbsp;<div class="mt-ro faint" style="font-size:11px">${p.status==='closed'&&mtNum(p.r)!=null?(mtNum(p.r)>0?'Win':mtNum(p.r)<0?'Loss':'Break even'):''}</div></label></div>
+    <label class="mt-note">Notes<textarea rows="2" data-inp="mt" data-chg="mt" data-sym="${esc(sym.name)}" data-k="note" placeholder="What you see, what would make it wrong">${esc(p.note||'')}</textarea></label>
+    ${dirOk?'':'<div class="flag warn">The break is against your higher time frame bias. Your rules say: only with a clear reversal at a higher time frame level.</div>'}
+    ${p.brk==='both'?'<div class="flag bad">Both sides broken: that\'s chop, and a no-trade day for this market.</div>':''}`;
+}
+
+RENDER.manual=function(){
+  const el=$('#manual'), m=state.manual, st=mtStrat(), today=todayYmd(), day=mtDay(today,st.id,false), ses=mtSession(st);
+  const trades=st.symbols.filter(s=>day&&day.syms[s.name]&&['in','closed'].includes(day.syms[s.name].status)).length;
+  const dayR=day?sum(st.symbols.map(s=>day.syms[s.name]&&day.syms[s.name].status==='closed'?mtNum(day.syms[s.name].r):0)):0;
+  el.innerHTML=`<div class="page-head"><div><h1>Manual trading</h1><p>Opening range breakout with a pullback entry (Trade with Pat's 5-minute strategy), one chart per market. Plan each market under its chart, or paste a plan from your Claude trading desk.</p></div>
+      <div class="actions"><button class="btn" data-act="mtCopy">Copy for Claude</button><button class="btn primary" data-act="mtPaste">Paste plan from Claude</button></div></div>
+    <div class="actions" style="margin-bottom:14px;justify-content:space-between"><div class="pills">${m.strategies.map(s=>`<button class="pill ${s.id===st.id?'active':''}" data-act="mtStrat" data-id="${s.id}">${esc(s.name)}</button>`).join('')}</div>
+      <div class="pills">${MT_INTS.map(([k,l])=>`<button class="pill ${m.interval===k?'active':''}" data-act="mtInt" data-id="${k}">${l}</button>`).join('')}</div></div>
+    <div id="mtPasteBox" class="panel" style="display:none;margin-bottom:14px"><div class="panel-head"><h3>Paste the plan</h3><span class="hint">Your browser didn't allow reading the clipboard. Paste the block Claude gave you here.</span></div>
+      <div class="field"><textarea id="mtPasteText" rows="5" placeholder='{"type":"manual-plan", …}'></textarea></div><div class="actions" style="margin-top:10px"><button class="btn primary" data-act="mtApply">Apply</button><button class="btn ghost" data-act="mtPasteClose">Cancel</button></div></div>
+    <div class="kpis" style="margin-bottom:14px">
+      ${kpi('Range candle (your time)',`${hm(ses.start)}–${hm(ses.end)}`,`${st.open} ${esc(st.tz.split('/').pop().replace('_',' '))} time`)}
+      ${kpi('Now',`<span id="mtPhase">${{off:'Closed',before:'Pre-market',range:'Range forming',live:'Session live',done:'Session over'}[ses.phase]}</span>`,`<span id="mtClock">${ses.text}</span>`)}
+      ${kpi('Trades today',`${trades} / ${st.maxTrades}`,trades>=st.maxTrades?'Max reached: no more trades today':'Max per session',trades>=st.maxTrades?'neg':'')}
+      ${kpi('Result today',dayR?(dayR>0?'+':'')+dayR.toFixed(1)+'R':'—','Closed trades',cls(dayR))}
+    </div>
+    <div class="grid g-half" style="margin-bottom:14px">
+      <div class="panel"><div class="panel-head"><h3>Morning read</h3><span class="hint">${dLong(today)}</span></div><div class="field"><textarea rows="4" data-inp="mtDay" data-chg="mtDay" data-k="plan" placeholder="Higher time frame trend, key levels, news to avoid">${esc(day?day.plan:'')}</textarea></div></div>
+      <div class="panel"><div class="panel-head"><h3>After the session</h3></div>
+        <div class="field" style="margin-bottom:9px"><select data-chg="mtDay" data-k="followed"><option value="">Did I follow my rules?</option><option value="yes" ${day&&day.followed==='yes'?'selected':''}>Yes, all of them</option><option value="no" ${day&&day.followed==='no'?'selected':''}>No, I broke a rule</option></select></div>
+        <div class="field"><textarea rows="2" data-inp="mtDay" data-chg="mtDay" data-k="review" placeholder="What I'd repeat or change">${esc(day?day.review:'')}</textarea></div></div>
+    </div>
+    <div class="mt-grid">${st.symbols.map((s,i)=>`<div class="mt-cell"><div class="mt-chart" id="mtc-${i}"><div class="empty" style="padding-top:150px"><p>Loading ${esc(s.name)}…</p></div></div><div class="mt-plan" id="mtp-${i}">${mtPlanHtml(st,day,s,i)}</div></div>`).join('')}</div>
+    <details class="panel" style="margin-top:14px" ${day?'':'open'}><summary class="mt-sum">Rules: ${esc(st.name)}</summary><ol class="mt-rules">${st.rules.map(r=>`<li>${esc(r)}</li>`).join('')}</ol>
+      <p class="faint" style="font-size:12px">Max ${st.maxTrades} trades per session. Markets that usually move together (GER40 and UK100, EURUSD and GBPUSD, NAS100 and US30) count as one idea.</p></details>
+    ${mtJournalHtml(st)}
+    <details class="panel" style="margin-top:14px"><summary class="mt-sum">Set up this strategy</summary>
+      <div class="field-row three" style="margin-top:12px"><div class="field"><label>Name</label><input id="mtsName" value="${esc(st.name)}"></div><div class="field"><label>Session time zone</label><input id="mtsTz" value="${esc(st.tz)}"></div><div class="field"><label>Open <em>(in that zone)</em></label><input id="mtsOpen" value="${esc(st.open)}"></div></div>
+      <div class="field-row three" style="margin-top:10px"><div class="field"><label>Range candle (minutes)</label><input id="mtsRange" type="number" value="${st.rangeMin}"></div><div class="field"><label>Max trades per session</label><input id="mtsMax" type="number" value="${st.maxTrades}"></div><div></div></div>
+      <div class="field" style="margin-top:10px"><label>Markets <em>one per line: name = TradingView symbol</em></label><textarea id="mtsSyms" rows="5">${esc(st.symbols.map(s=>s.name+' = '+s.tv).join('\n'))}</textarea></div>
+      <div class="field" style="margin-top:10px"><label>Rules <em>one per line</em></label><textarea id="mtsRules" rows="6">${esc(st.rules.join('\n'))}</textarea></div>
+      <p class="faint" style="font-size:12px;margin-top:8px">Charts use TradingView's free data (OANDA by default), so prices can differ by a few points from FTMO. If FTMO's own symbols load here, use them instead.</p>
+      <div class="actions" style="margin-top:10px"><button class="btn primary" data-act="mtSave">Save setup</button></div></details>`;
+  mtCharts(st);
+};
+function mtJournalHtml(st){
+  const rows=Object.entries(state.manual.days).filter(([k])=>k.endsWith('|'+st.id)).map(([k,d])=>({date:k.split('|')[0],d})).sort((a,b)=>b.date.localeCompare(a.date))
+    .filter(({d})=>d.plan||d.review||Object.values(d.syms).some(p=>p.status));
+  if(!rows.length) return `<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Journal</h3></div><p class="dim" style="font-size:13px">Each session you plan shows up here with its trades and result.</p></div>`;
+  let totR=0, n=0, w=0, kept=0, judged=0;
+  const body=rows.map(({date,d})=>{
+    const tr=Object.entries(d.syms).filter(([,p])=>p.status==='closed'||p.status==='in'), r=sum(tr.map(([,p])=>mtNum(p.r)||0));
+    tr.forEach(([,p])=>{ if(p.status==='closed'){ n++; if((mtNum(p.r)||0)>0) w++; } }); totR+=r; if(d.followed){ judged++; if(d.followed==='yes') kept++; }
+    return `<tr><td>${dShort(date)}</td><td>${tr.length?tr.map(([s,p])=>`${esc(s)} <span class="${cls(mtNum(p.r))}">${p.status==='in'?'open':(mtNum(p.r)>0?'+':'')+(mtNum(p.r)??0)+'R'}</span>`).join(' · '):'<span class="faint">No trade</span>'}</td><td class="num ${cls(r)}">${tr.length?(r>0?'+':'')+r.toFixed(1)+'R':'—'}</td><td>${d.followed==='yes'?'<span class="pos">Yes</span>':d.followed==='no'?'<span class="neg">No</span>':'—'}</td><td class="dim">${esc(d.review||'')}</td></tr>`;
+  }).join('');
+  return `<div class="panel" style="margin-top:14px"><div class="panel-head"><h3>Journal</h3><span class="hint">${n} closed trade${n===1?'':'s'} · win rate ${n?Math.round(w/n*100)+'%':'—'} · total <span class="${cls(totR)}">${(totR>0?'+':'')+totR.toFixed(1)}R</span> · rules kept ${judged?kept+'/'+judged+' days':'—'}</span></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Day</th><th>Trades</th><th>Result</th><th>Rules kept</th><th>Review</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+}
+function mtCharts(st){
+  loadTv().then(()=>{ if(curView!=='manual') return;
+    st.symbols.forEach((s,i)=>{ const box=$('#mtc-'+i); if(!box) return; box.innerHTML='';
+      new TradingView.widget({autosize:true,symbol:s.tv,interval:state.manual.interval,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone||'Etc/UTC',theme:'dark',style:'1',locale:'en',container_id:'mtc-'+i,allow_symbol_change:false,hide_side_toolbar:false,hide_top_toolbar:false,withdateranges:false,save_image:true}); });
+  }).catch(()=>{ st.symbols.forEach((s,i)=>{ const b=$('#mtc-'+i); if(b) b.innerHTML=`<div class="empty" style="padding-top:120px"><h3>Chart couldn't load</h3><p>You're offline, or the browser's shields block tradingview.com here.</p><a class="btn sm" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(s.tv)}" target="_blank" rel="noopener">Open ${esc(s.name)} on TradingView</a></div>`; }); });
+}
+function mtRepaint(name){ const st=mtStrat(), i=st.symbols.findIndex(s=>s.name===name), box=$('#mtp-'+i); if(box) box.innerHTML=mtPlanHtml(st,mtDay(todayYmd(),st.id,false),st.symbols[i],i); }
+
+INP.mt=t=>{ const st=mtStrat(), p=mtSym(mtDay(todayYmd(),st.id,true),t.dataset.sym); p[t.dataset.k]=t.value.trim(); store.save(); };
+CHG.mt=t=>{ INP.mt(t); mtRepaint(t.dataset.sym); };
+INP.mtDay=t=>{ const st=mtStrat(); mtDay(todayYmd(),st.id,true)[t.dataset.k]=t.value; store.save(); };
+CHG.mtDay=t=>INP.mtDay(t);
+ACT.mtStrat=id=>{ state.manual.cur=id; store.save(); render(); };
+ACT.mtInt=id=>{ state.manual.interval=id; store.save(); render(); };
+ACT.mtSave=()=>{
+  const st=mtStrat(), syms=$('#mtsSyms').value.split('\n').map(l=>l.split('=').map(x=>x.trim())).filter(([n,tv])=>n&&tv).map(([name,tv])=>({name:name.toUpperCase(),tv:tv.toUpperCase()}));
+  const tz=$('#mtsTz').value.trim(); try{ new Intl.DateTimeFormat('en',{timeZone:tz}); }catch(e){ return toast('Unknown time zone. Use a name like Europe/London.','bad'); }
+  if(!/^\d{1,2}:\d{2}$/.test($('#mtsOpen').value.trim())) return toast('Open time should look like 08:00.','bad');
+  if(!syms.length) return toast('Add at least one market.','bad');
+  Object.assign(st,{name:$('#mtsName').value.trim()||st.name,tz,open:$('#mtsOpen').value.trim().padStart(5,'0'),rangeMin:Math.max(1,Number($('#mtsRange').value)||15),maxTrades:Math.max(1,Number($('#mtsMax').value)||2),
+    symbols:syms.slice(0,6),rules:$('#mtsRules').value.split('\n').map(x=>x.trim()).filter(Boolean)});
+  store.save(); toast('Strategy saved'); render();
+};
+
+/* --- the bridge to a Claude session: copy today's state out, paste a plan in --- */
+ACT.mtCopy=()=>{
+  const st=mtStrat(), today=todayYmd(), day=mtDay(today,st.id,false)||{syms:{}}, ses=mtSession(st);
+  const txt=`MANUAL TRADING · ${st.name} · ${dLong(today)} · now ${hm(new Date())} my time (${ses.phase}), range candle ${hm(ses.start)}–${hm(ses.end)}\n`+
+    (day.plan?`Morning read: ${day.plan}\n`:'')+
+    st.symbols.map(s=>{ const p=day.syms[s.name]||{}, f=['bias','high','low','brk','level','entry','sl','tp','status','r','note'].filter(k=>p[k]).map(k=>`${k}=${p[k]}`).join(', '); return `- ${s.name} (${s.tv}): ${f||'nothing yet'}`; }).join('\n');
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast('Copied. Paste it into your Claude trading desk.'),()=>{ prompt('Copy this:',txt); });
+};
+function mtApplyPlan(raw){
+  let j; try{ j=JSON.parse(String(raw).trim().replace(/^```(json)?|```$/g,'')); }catch(e){ return toast("That isn't a plan from Claude (couldn't read it).",'bad'),false; }
+  if(!j||j.type!=='manual-plan') return toast("That isn't a plan from Claude.",'bad'),false;
+  const st=state.manual.strategies.find(s=>s.id===j.strategy)||mtStrat(), day=mtDay(j.date||todayYmd(),st.id,true), keys=['bias','brk','status','high','low','level','entry','sl','tp','r','note'];
+  if(j.plan) day.plan=j.plan; if(j.review) day.review=j.review;
+  let n=0; Object.entries(j.symbols||{}).forEach(([name,v])=>{ const p=mtSym(day,name.toUpperCase()); keys.forEach(k=>{ if(v[k]!=null&&v[k]!==''){ p[k]=String(v[k]); } }); n++; });
+  state.manual.cur=st.id; store.save(); render(); toast(`Plan added: ${n} market${n===1?'':'s'} on ${st.name}`); return true;
+}
+ACT.mtPaste=()=>{
+  const box=()=>{ $('#mtPasteBox').style.display='block'; $('#mtPasteText').focus(); };
+  if(!navigator.clipboard||!navigator.clipboard.readText) return box();
+  navigator.clipboard.readText().then(t=>{ if(!/"manual-plan"/.test(t)) return box(); mtApplyPlan(t); },box);
+};
+ACT.mtApply=()=>{ if(mtApplyPlan($('#mtPasteText').value)) $('#mtPasteBox').style.display='none'; };
+ACT.mtPasteClose=()=>{ $('#mtPasteBox').style.display='none'; };
+setInterval(()=>{ if(curView!=='manual'||!$('#mtClock')) return; const s=mtSession(mtStrat()); $('#mtClock').textContent=s.text; $('#mtPhase').textContent={off:'Closed',before:'Pre-market',range:'Range forming',live:'Session live',done:'Session over'}[s.phase]; },30000);
+
+/* ============================================================
    SETTINGS
    ============================================================ */
 function download(name,text){ const url=URL.createObjectURL(new Blob([text],{type:'application/json'})), a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),500); }
@@ -1865,7 +2061,7 @@ document.addEventListener('keydown',e=>{
   if(e.target.closest('#inCal')) return $('#calGo').click();
   const p=$('.modal-foot .btn.primary',open); if(p) p.click();
 });
-let rsz; window.addEventListener('resize',()=>{ clearTimeout(rsz); rsz=setTimeout(()=>{ if(!$('.overlay.show')&&curView!=='chart') render(); },180); });
+let rsz; window.addEventListener('resize',()=>{ clearTimeout(rsz); rsz=setTimeout(()=>{ if(!$('.overlay.show')&&curView!=='chart'&&curView!=='manual') render(); },180); });
 
 // the removed AI chart-reader kept an API key in storage — make sure it's gone
 ['orbApiKey','orbAiModel','orbDraftNotes'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
