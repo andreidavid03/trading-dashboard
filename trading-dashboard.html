@@ -1492,6 +1492,15 @@ function defaultRules(){
     R('Gold robot accounts','Account stop: if a robot account falls 35% below what you put in (€278 on €428), switch every robot on it off and review. That is deeper than its two gold robots ever dipped together in the tests (22–31%).'),
     R('Gold robot accounts','Judge a robot only after 30 trades or two months, whichever comes later — fewer is mostly luck. Earning under half its tested result per trade by then means switch it off.'),
     R('Gold robot accounts','Profits stay in as a cushion for the first three months. No withdrawals and no lot increase until then.'),
+    R('Lot size and growth','Every robot starts at a fixed 0.01 lot. Switch off its percent-risk or auto-lot inputs (My AI Gold: Lot=0.01 instead of percent/balance) and check the lot of its first real trade.'),
+    R('Lot size and growth','Exception: a very fast scalper whose wins are only cents at 0.01 may start bigger, but only after a month on demo at that lot shows it still earns with real spread and slippage.'),
+    R('Lot size and growth','The lot grows only as fast as the account, never faster: when an account has doubled (€856 on €428) its robots go to 0.02; three times what you put in, 0.03. Only at a monthly review, never in the first three months.'),
+    R('Lot size and growth','Only robots that have passed the judging rule (30 trades or two months, close to their test) get the bigger lot. The others stay at 0.01.'),
+    R('Lot size and growth','If the balance falls back under the step a lot was raised at, go back to the previous lot that weekend. Robots that compound on their own do this by themselves; a manual raise doesn\'t.'),
+    R('Lot size and growth','When a robot\'s lot goes up, its switch-off line goes up with it (twice the line at 0.02): edit it on the robot\'s page. The account stop line stays 35% below what you put in.'),
+    R('Adding robots','Before a robot is added or its lot raised, ask Claude which tests it needs (dates, settings, fixed lot) and run exactly those. No change without them.'),
+    R('Adding robots','A new robot goes on a real account only after its tester report has been checked at a fixed lot and it has run a month on demo at 0.01 without breaking its tested worst dip.'),
+    R('Adding robots','Add it to an account that is above what you put in, has a free place (four robots at most) and has no robot of the same type already: two breakout scalpers on one account trade the same moments. One new robot at a time, at the weekend.'),
     R('Account management','Trading access only, with the account in my own name.'),
     R('Account management','Maximum loss decided in advance: 30% (about €130). If it is hit, take the rest out.'),
     R('Account management','Log its result yourself every week from the broker\'s own statement, not from the manager\'s report.'),
@@ -1525,23 +1534,24 @@ const RULE_EDITS={
   'Account stop: if a gold account falls 35% below what you put in (€278 on €428), switch both robots off and review. That is deeper than any two-robot dip in the tests (22–31%).':11,
   'Robot stop: switch a robot off once it has lost twice its worst dip from the test (its switch-off line below).':10,
   'Four-week check: a scalper earning less than half its tested average per trade gets switched off.':12,
-  'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':17,
-  'Size every trade on the Lot size page, at a risk per trade decided in advance.':18,
-  'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':22,
-  'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':23,
-  'Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.':21,
-  'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':24
+  'Know the two limits before every trade: the firm\'s maximum daily loss and maximum overall loss. FTMO\'s standard limits are 5% and 10% of the starting balance — check the figures on your own account.':26,
+  'Size every trade on the Lot size page, at a risk per trade decided in advance.':27,
+  'First weekend of the month: in each MT5 terminal, save last month\'s account history as an HTML report (History tab → right-click → Report) and import it on the robot\'s page. It shows up as Live history.':31,
+  'Run the Strategy Tester for the same robot, same settings, same month, and import that report as well.':32,
+  'Log the week\'s result every Sunday, and record each payout on the account as a withdrawal.':30,
+  'Compare the two on the robot\'s page: net result, drawdown and number of trades. Live at less than half the test, or a deeper drawdown than the test, means the robot needs a review before it keeps running.':33
 };
-const RULES_REV=7;   // 5: Yuvi starts at $450 (≈ €400) instead of $800 · 6: news rule · 7: FTMO logged by payouts only
+const RULES_REV=8;   // 5: Yuvi starts at $450 (≈ €400) instead of $800 · 6: news rule · 7: FTMO logged by payouts only · 8: lot growth + adding robots
 // rules that first appeared in revision 3 — only these are added to an existing list (a default the user changed or deleted is never put back)
-const RULES_NEW_IN_3=[11,16,20,26];
+const RULES_NEW_IN_3=[11,25,29,35];
 const RULES_NEW_IN_6=[2];   // the news rule
+const RULES_NEW_IN_8=[14,15,16,17,18,19,20,21,22];   // lot size and growth, adding robots
 function migrateRules(){
   if(!Array.isArray(state.rules)||state.settings.rulesRev>=RULES_REV) return;
   const def=defaultRules(), prev=Number(state.settings.rulesRev)||0;
   state.rules.forEach(r=>{ if(r.text in RULE_EDITS) r.text=def[RULE_EDITS[r.text]].text; });
   // add rules that are new since the user's revision, right after the default rule before them (or at the start of their group)
-  [...(prev<3?RULES_NEW_IN_3:[]),...(prev<6?RULES_NEW_IN_6:[])].forEach(i=>{
+  [...(prev<3?RULES_NEW_IN_3:[]),...(prev<6?RULES_NEW_IN_6:[]),...(prev<8?RULES_NEW_IN_8:[])].forEach(i=>{
     const d=def[i]; if(state.rules.some(r=>r.text===d.text)) return;
     let at=-1; for(let k=i-1;k>=0&&at<0;k--){ if(def[k].group!==d.group) break; at=state.rules.findIndex(r=>r.text===def[k].text); }
     if(at<0){ const first=state.rules.findIndex(r=>r.group===d.group); if(first>=0){ state.rules.splice(first,0,d); return; } }
