@@ -1175,6 +1175,15 @@ function mergePack(pack,dry){
   (pack.changes||[]).forEach(ch=>{ const a=packAcct(ch.account); if(!a) return;
     if(ch.field==='floor'){ if(Number(a.floor)!==Number(ch.from)) return; d.nc++; if(!dry) a.floor=ch.to; }
     if(ch.field==='plan'){ const p=state.plans.find(x=>x.accountId===a.id&&!x.appliedFlowId&&Number(x.amount)===Number(ch.from)); if(!p) return; d.nc++; if(!dry){ p.amount=ch.to; if(ch.note) p.note=ch.note; } }
+    // the real start of an account: its planned deposits give way to the amount actually put in (only while nothing else was entered on it)
+    if(ch.field==='start'){ const t=ch.to||{};
+      if((a.flows||[]).some(f=>!f.fromPlan)||Number(a.balance)>0||Object.values(state.entries).some(e=>('acct:'+a.id) in e)) return;
+      d.nc++; if(dry) return;
+      const gone=(a.flows||[]).map(f=>f.id);
+      state.plans=state.plans.filter(p=>!(p.accountId===a.id&&(!p.appliedFlowId||gone.includes(p.appliedFlowId))));
+      ['name','broker','status','currency','fx','floor','note'].forEach(k=>{ if(t[k]!=null) a[k]=t[k]; });
+      a.balance=0; a.flows=[{id:uid(),amount:Number(t.deposit)||0,type:'deposit',date:t.date||todayYmd()}];
+    }
   });
   if(dry) return d;
   if(pack.settings&&pack.settings.seasonStart&&state.settings.seasonStart===blank().settings.seasonStart) state.settings.seasonStart=pack.settings.seasonStart;
