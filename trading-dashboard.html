@@ -1145,6 +1145,7 @@ const packRobot=pr=>state.robots.find(x=>x.name.trim().toLowerCase()===String(pr
 const packAcct=n=>state.accounts.find(a=>a.name.trim().toLowerCase()===String(n||'').trim().toLowerCase());
 // Merge a pack into what is already there. Nothing existing is replaced: accounts and robots match by name,
 // test runs are skipped if present, a robot is only placed on an account if it isn't on one. dry=true just counts.
+const curFx=c=>c==='EUR'?1:c==='USD'?usdRate():c==='USC'?usdRate()/100:1;
 function mergePack(pack,dry){
   const d={nr:0,nu:0,nf:0,na:0,nm:0,np:0,nl:0,nx:0,nc:0}, made={};
   // an account that was created as a placeholder and never used (no money, robots or results)
@@ -1158,6 +1159,7 @@ function mergePack(pack,dry){
     }
     d.na++; if(dry){ made[key]='new'; return; }
     const a={id:uid(),broker:'',status:'waiting',currency:BASE,fx:1,balance:0,demo:false,funded:false,split:80,floor:'',flows:[],...info,color:nextColor(state.accounts)};
+    if(info.currency&&info.fx==null) a.fx=curFx(info.currency);
     state.accounts.push(a); made[key]=a.id;
   });
   (pack.plans||[]).forEach(pp=>{ const id=made[String(pp.account||'').trim().toLowerCase()]; if(!id) return;   // only for accounts this pack creates
@@ -1175,6 +1177,8 @@ function mergePack(pack,dry){
   (pack.changes||[]).forEach(ch=>{ const a=packAcct(ch.account); if(!a) return;
     if(ch.field==='floor'){ if(Number(a.floor)!==Number(ch.from)) return; d.nc++; if(!dry) a.floor=ch.to; }
     if(ch.field==='plan'){ const p=state.plans.find(x=>x.accountId===a.id&&!x.appliedFlowId&&Number(x.amount)===Number(ch.from)); if(!p) return; d.nc++; if(!dry){ p.amount=ch.to; if(ch.note) p.note=ch.note; } }
+    // an account entered in the wrong currency: amounts stay, only the currency (and its euro rate) changes
+    if(ch.field==='currency'){ if((a.currency||BASE)!==ch.from) return; d.nc++; if(!dry){ a.currency=ch.to; a.fx=curFx(ch.to); } }
     // the real start of an account: its planned deposits give way to the amount actually put in (only while nothing else was entered on it)
     if(ch.field==='start'){ const t=ch.to||{};
       if((a.flows||[]).some(f=>!f.fromPlan)||Number(a.balance)>0||Object.values(state.entries).some(e=>('acct:'+a.id) in e)) return;
@@ -1182,6 +1186,7 @@ function mergePack(pack,dry){
       const gone=(a.flows||[]).map(f=>f.id);
       state.plans=state.plans.filter(p=>!(p.accountId===a.id&&(!p.appliedFlowId||gone.includes(p.appliedFlowId))));
       ['name','broker','status','currency','fx','floor','note'].forEach(k=>{ if(t[k]!=null) a[k]=t[k]; });
+      if(t.currency&&t.fx==null) a.fx=curFx(t.currency);
       a.balance=0; a.flows=[{id:uid(),amount:Number(t.deposit)||0,type:'deposit',date:t.date||todayYmd()}];
     }
   });
