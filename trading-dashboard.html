@@ -1147,7 +1147,7 @@ const packAcct=n=>state.accounts.find(a=>a.name.trim().toLowerCase()===String(n|
 // test runs are skipped if present, a robot is only placed on an account if it isn't on one. dry=true just counts.
 const curFx=c=>c==='EUR'?1:c==='USD'?usdRate():c==='USC'?usdRate()/100:1;
 function mergePack(pack,dry){
-  const d={nr:0,nu:0,nf:0,na:0,nm:0,np:0,nl:0,nx:0,nc:0,nd:0}, made={}, again=!!(pack.id&&state.packsDone.includes(pack.id));
+  const d={nr:0,nu:0,nf:0,na:0,nm:0,np:0,nl:0,nx:0,nc:0,nd:0,ns:0,nq:0}, made={}, again=!!(pack.id&&state.packsDone.includes(pack.id));
   const acctOf=n=>(Array.isArray(n)?n:[n]).map(packAcct).find(Boolean);
   // an account that was created as a placeholder and never used (no money, robots or results)
   const pristine=a=>!(a.flows||[]).length&&!(Number(a.balance)>0)&&!state.robots.some(r=>r.accountId===a.id)&&!Object.values(state.entries).some(e=>('acct:'+a.id) in e);
@@ -1198,6 +1198,15 @@ function mergePack(pack,dry){
     state.robots.forEach(r=>{ if(r.accountId===a.id) r.accountId=''; });
     state.plans=state.plans.filter(p=>p.accountId!==a.id); state.accounts=state.accounts.filter(x=>x.id!==a.id);
   });
+  // a plan: where each robot goes and in what stage, applied once (later loads leave your own edits alone)
+  (pack.set||[]).forEach(u=>{ const r=(Array.isArray(u.robot)?u.robot:[u.robot]).map(n=>packRobot({name:n})).find(Boolean); if(!r||again) return;
+    d.ns++; if(dry) return;
+    if(u.name) r.name=u.name; if(u.stage) r.stage=u.stage; if(u.note!=null) r.note=u.note;
+    if(u.account!=null){ const a=u.account?acctOf(u.account):null; r.accountId=a?a.id:''; }
+  });
+  // rules the plan adds, each once
+  (pack.rules||[]).forEach(q=>{ if(!Array.isArray(state.rules)){ if(dry){ d.nq++; return; } state.rules=defaultRules(); state.settings.rulesRev=RULES_REV; }
+    if(state.rules.some(x=>x.text===q.text)) return; d.nq++; if(!dry) state.rules.push({id:uid(),group:q.group,text:q.text}); });
   if(dry) return d;
   if(pack.settings&&pack.settings.seasonStart&&state.settings.seasonStart===blank().settings.seasonStart) state.settings.seasonStart=pack.settings.seasonStart;
   if(pack.id&&!state.packsDone.includes(pack.id)) state.packsDone.push(pack.id);
@@ -1205,7 +1214,7 @@ function mergePack(pack,dry){
   return {...d,ok:store.save()};
 }
 const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
-const packParts=d=>[d.na?plural(d.na,'account'):'',d.nm?`${plural(d.nm,'placeholder account')} set up`:'',d.np?plural(d.np,'planned deposit'):'',d.nr?plural(d.nr,'robot'):'',d.nu?plural(d.nu,'test run'):'',d.nf?`switch-off lines for ${plural(d.nf,'robot')}`:'',d.nl?`${plural(d.nl,'robot')} placed on an account`:'',d.nx?`${plural(d.nx,'robot')} taken off an account`:'',d.nc?plural(d.nc,'planned change'):'',d.nd?`${plural(d.nd,'account')} removed`:''].filter(Boolean).join(', ');
+const packParts=d=>[d.na?plural(d.na,'account'):'',d.nm?`${plural(d.nm,'placeholder account')} set up`:'',d.np?plural(d.np,'planned deposit'):'',d.nr?plural(d.nr,'robot'):'',d.nu?plural(d.nu,'test run'):'',d.nf?`switch-off lines for ${plural(d.nf,'robot')}`:'',d.nl?`${plural(d.nl,'robot')} placed on an account`:'',d.nx?`${plural(d.nx,'robot')} taken off an account`:'',d.nc?plural(d.nc,'planned change'):'',d.nd?`${plural(d.nd,'account')} removed`:'',d.ns?`${plural(d.ns,'robot')} moved to the plan`:'',d.nq?plural(d.nq,'rule'):''].filter(Boolean).join(', ');
 const packMsg=r=>r.ok?'Added '+(packParts(r)||'nothing new'):'Browser storage is full — not everything was saved';
 // A pack sitting next to the app (served by the launcher) is applied once: straight away if it is marked auto, otherwise offered.
 function checkPack(){ fetch('trading-book-robots.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(p=>{
